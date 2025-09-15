@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useConversationStore } from '@/store/conversation'
-import { useSpeechRecognitionWithTranslation } from '@/hooks/useSpeechRecognition'
+import { useEnhancedSpeech } from '@/hooks/useEnhancedSpeech'
 import { useAutoTextToSpeech } from '@/hooks/useTextToSpeech'
 import { cn } from '@/lib/utils'
 
@@ -222,20 +222,24 @@ const ConversationInterface = () => {
     updateSettings 
   } = useConversationStore()
   
-  // Enhanced speech recognition with auto-translation
+  // Enhanced speech recognition with improved accuracy and controls
   const {
     isListening,
     isSupported: speechSupported,
+    status,
     transcript,
     interimTranscript,
     confidence,
-    error: speechError,
-    startListening,
-    stopListening,
+    alternatives,
+    isVoiceActive,
+    silenceDuration,
+    toggleListening,
     resetTranscript,
+    error: speechError,
+    clearError,
     isTranslating,
     translationError
-  } = useSpeechRecognitionWithTranslation()
+  } = useEnhancedSpeech()
   
   // Text-to-speech for auto-speaking translations
   const {
@@ -245,12 +249,11 @@ const ConversationInterface = () => {
   } = useAutoTextToSpeech()
 
   const handleMicToggle = () => {
-    if (isListening) {
-      stopListening()
-    } else {
-      resetTranscript()
-      startListening()
-    }
+    // Clear any errors first
+    clearError()
+    
+    // Simple toggle - much more intuitive
+    toggleListening()
   }
 
   return (
@@ -319,31 +322,71 @@ const ConversationInterface = () => {
             </div>
           )}
           
-          {/* Current speech input */}
-          {(transcript || interimTranscript) && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-lg border-2 border-dashed border-blue-300 bg-blue-50 p-4 dark:border-blue-600 dark:bg-blue-900/20"
-            >
-              <div className="mb-2 flex items-center gap-2 text-sm font-medium text-blue-800 dark:text-blue-200">
-                <Mic className={cn("h-4 w-4", isListening && "animate-pulse")} />
-                Listening...
-                {isTranslating && <Loader2 className="h-4 w-4 animate-spin" />}
-              </div>
-              
-              <div className="text-gray-900 dark:text-white">
-                <span className="font-medium">{transcript}</span>
-                <span className="opacity-60">{interimTranscript}</span>
-              </div>
-              
-              {confidence > 0 && (
-                <div className="mt-2 text-xs text-gray-500">
-                  Confidence: {Math.round(confidence * 100)}%
-                </div>
+              {/* Enhanced Current Speech Input */}
+              {(transcript || interimTranscript) && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="rounded-lg border-2 border-dashed border-blue-300 bg-blue-50 p-4 dark:border-blue-600 dark:bg-blue-900/20"
+                >
+                  <div className="mb-2 flex items-center justify-between text-sm font-medium text-blue-800 dark:text-blue-200">
+                    <div className="flex items-center gap-2">
+                      <Mic className={cn("h-4 w-4", isVoiceActive && "animate-pulse text-green-600")} />
+                      <span>
+                        {status === 'listening' && isVoiceActive && 'Recording...'}
+                        {status === 'listening' && !isVoiceActive && 'Listening...'}
+                        {status === 'processing' && 'Processing...'}
+                      </span>
+                      {isTranslating && <Loader2 className="h-4 w-4 animate-spin" />}
+                    </div>
+                    
+                    {/* Real-time Confidence */}
+                    {confidence > 0 && (
+                      <div className="flex items-center gap-1">
+                        <div className={cn(
+                          "h-2 w-2 rounded-full",
+                          confidence > 0.8 ? "bg-green-500" : confidence > 0.6 ? "bg-yellow-500" : "bg-red-500"
+                        )} />
+                        <span className="text-xs">{Math.round(confidence * 100)}%</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="text-gray-900 dark:text-white">
+                    <span className="font-medium">{transcript}</span>
+                    <span className="opacity-60 italic">{interimTranscript}</span>
+                  </div>
+                  
+                  {/* Enhanced Status Info */}
+                  <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                    <div className="flex items-center gap-2">
+                      {isVoiceActive ? (
+                        <span className="text-green-600">🎤 Voice detected</span>
+                      ) : silenceDuration > 0 ? (
+                        <span>🤫 Silence: {Math.round(silenceDuration / 1000)}s</span>
+                      ) : (
+                        <span>👂 Waiting for speech</span>
+                      )}
+                    </div>
+                    
+                    {alternatives.length > 1 && (
+                      <span>{alternatives.length} alternatives</span>
+                    )}
+                  </div>
+                  
+                  {/* Show top alternatives for very low confidence */}
+                  {confidence < 0.6 && alternatives.length > 1 && (
+                    <div className="mt-2 pt-2 border-t border-blue-200 dark:border-blue-700">
+                      <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Did you mean:</div>
+                      {alternatives.slice(0, 2).map((alt, index) => (
+                        <div key={index} className="text-xs text-gray-700 dark:text-gray-300">
+                          • {alt.transcript} ({Math.round(alt.confidence * 100)}%)
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </motion.div>
               )}
-            </motion.div>
-          )}
         </AnimatePresence>
         
         {/* Error States */}
@@ -367,24 +410,54 @@ const ConversationInterface = () => {
       {/* Controls */}
       <div className="p-6">
         <div className="flex flex-wrap items-center justify-center gap-4">
-          {/* Main Microphone Button */}
-          <Button
-            onClick={handleMicToggle}
-            disabled={!speechSupported}
-            variant={isListening ? "danger" : "success"}
-            size="xl"
-            className={cn(
-              "h-16 w-16 rounded-full transition-all duration-300",
-              isListening && "animate-pulse shadow-lg shadow-red-500/50",
-              !speechSupported && "opacity-50 cursor-not-allowed"
-            )}
-          >
-            {isListening ? (
-              <MicOff className="h-8 w-8" />
-            ) : (
-              <Mic className="h-8 w-8" />
-            )}
-          </Button>
+              {/* Enhanced Microphone Button with Status */}
+              <div className="relative">
+                <Button
+                  onClick={handleMicToggle}
+                  disabled={!speechSupported}
+                  variant={isListening ? "danger" : "success"}
+                  size="xl"
+                  className={cn(
+                    "h-20 w-20 rounded-full transition-all duration-300 relative",
+                    isListening && "animate-pulse shadow-2xl shadow-red-500/50",
+                    isVoiceActive && "ring-4 ring-green-400/50 ring-offset-2",
+                    status === 'processing' && "bg-yellow-500 hover:bg-yellow-600",
+                    !speechSupported && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  {status === 'processing' ? (
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                  ) : isListening ? (
+                    <MicOff className="h-8 w-8" />
+                  ) : (
+                    <Mic className="h-8 w-8" />
+                  )}
+                </Button>
+                
+                {/* Voice Activity Indicator */}
+                {isListening && (
+                  <div className="absolute -top-2 -right-2">
+                    <div className={cn(
+                      "h-6 w-6 rounded-full border-2 border-white transition-all duration-200",
+                      isVoiceActive ? "bg-green-500" : "bg-gray-400"
+                    )}>
+                      <div className={cn(
+                        "h-full w-full rounded-full transition-all duration-200",
+                        isVoiceActive && "animate-ping bg-green-500/50"
+                      )} />
+                    </div>
+                  </div>
+                )}
+                
+                {/* Status Text */}
+                <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs font-medium">
+                  {status === 'listening' && !isVoiceActive && 'Listening...'}
+                  {status === 'listening' && isVoiceActive && 'Speaking'}
+                  {status === 'processing' && 'Processing...'}
+                  {status === 'idle' && 'Click to start'}
+                  {status === 'error' && 'Error'}
+                </div>
+              </div>
           
           {/* Auto-speak Toggle */}
           <Button
@@ -426,33 +499,52 @@ const ConversationInterface = () => {
           </Button>
         </div>
         
-        {/* Status Display */}
-        <div className="mt-6 text-center">
-          <div className="mb-2 flex items-center justify-center gap-2 text-sm">
-            {isListening && (
-              <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                <span>Listening</span>
+            {/* Enhanced Status Display */}
+            <div className="mt-6 text-center">
+              <div className="mb-2 flex items-center justify-center gap-4 text-sm">
+                {isListening && (
+                  <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                    <div className={cn(
+                      "h-2 w-2 rounded-full transition-all duration-200",
+                      isVoiceActive ? "bg-green-500 animate-pulse" : "bg-yellow-500"
+                    )} />
+                    <span>
+                      {isVoiceActive ? "Recording" : "Listening"}
+                      {silenceDuration > 3000 && ` (${Math.round(silenceDuration / 1000)}s silence)`}
+                    </span>
+                  </div>
+                )}
+                {isTranslating && (
+                  <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Translating</span>
+                  </div>
+                )}
+                {isSpeaking && (
+                  <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
+                    <Volume2 className="h-4 w-4" />
+                    <span>Speaking</span>
+                  </div>
+                )}
+                {status === 'idle' && !isTranslating && !isSpeaking && (
+                  <div className="text-gray-500 dark:text-gray-400">
+                    {speechSupported ? (
+                      <div className="flex items-center gap-2">
+                        <span>🎯 Click microphone to start</span>
+                        <span className="text-xs opacity-75">(Auto-stops when you're done)</span>
+                      </div>
+                    ) : (
+                      "Speech recognition not supported"
+                    )}
+                  </div>
+                )}
+                {status === 'error' && (
+                  <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>Click microphone to retry</span>
+                  </div>
+                )}
               </div>
-            )}
-            {isTranslating && (
-              <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Translating</span>
-              </div>
-            )}
-            {isSpeaking && (
-              <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
-                <Volume2 className="h-4 w-4" />
-                <span>Speaking</span>
-              </div>
-            )}
-            {!isListening && !isTranslating && !isSpeaking && (
-              <div className="text-gray-500 dark:text-gray-400">
-                {speechSupported ? "Ready to listen" : "Speech recognition not supported"}
-              </div>
-            )}
-          </div>
           
           {/* Feature Support Indicators */}
           <div className="flex items-center justify-center gap-4 text-xs text-gray-500 dark:text-gray-400">
