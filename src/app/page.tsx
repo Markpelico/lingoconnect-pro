@@ -72,6 +72,13 @@ const HeroSection = () => {
               size="xl" 
               variant="gradient"
               className="text-lg shadow-2xl shadow-blue-500/25"
+              onClick={() => {
+                // Scroll to conversation interface
+                const conversationElement = document.querySelector('.conversation-interface')
+                if (conversationElement) {
+                  conversationElement.scrollIntoView({ behavior: 'smooth' })
+                }
+              }}
             >
               Start Conversation
               <MessageCircle className="ml-2 h-5 w-5" />
@@ -80,6 +87,20 @@ const HeroSection = () => {
               size="xl" 
               variant="outline"
               className="border-white/20 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20"
+              onClick={() => {
+                // Scroll to the conversation interface for demo
+                const conversationElement = document.querySelector('.conversation-interface')
+                if (conversationElement) {
+                  conversationElement.scrollIntoView({ behavior: 'smooth' })
+                  // Show a helpful demo message
+                  setTimeout(() => {
+                    alert('🎬 Demo Instructions:\n\n1. Click the green microphone button\n2. Say "Hello" or "Thank you"\n3. Watch it translate to Spanish automatically\n4. Hear the translation spoken aloud!\n\nTry it now! 🎤')
+                  }, 1000)
+                } else {
+                  // Fallback: scroll to main content
+                  window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })
+                }
+              }}
             >
               Watch Demo
               <Volume2 className="ml-2 h-5 w-5" />
@@ -237,7 +258,7 @@ const ConversationInterface = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4 }}
-      className="mx-auto max-w-4xl rounded-2xl bg-white shadow-xl dark:bg-gray-900"
+      className="conversation-interface mx-auto max-w-4xl rounded-2xl bg-white shadow-xl dark:bg-gray-900"
     >
       {/* Chat Messages Area */}
       <div className="h-96 overflow-y-auto border-b border-gray-200 p-6 dark:border-gray-700">
