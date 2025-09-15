@@ -155,13 +155,13 @@ export interface ICECandidate {
 }
 
 // API Response Types
-export interface APIResponse<T = any> {
+export interface APIResponse<T = unknown> {
   success: boolean
   data?: T
   error?: {
     message: string
     code: string
-    details?: any
+    details?: unknown
   }
   meta?: {
     page?: number
@@ -186,10 +186,18 @@ export interface AudioProcessingResult {
   processingTime: number
 }
 
+// Browser Speech Recognition Types (extend window)
+declare global {
+  interface Window {
+    SpeechRecognition: typeof SpeechRecognition
+    webkitSpeechRecognition: typeof SpeechRecognition
+  }
+}
+
 // Analytics Types
 export interface AnalyticsEvent {
   event: string
-  properties: Record<string, any>
+  properties: Record<string, unknown>
   userId?: string
   sessionId: string
   timestamp: Date
@@ -208,7 +216,7 @@ export interface AppError {
   code: string
   message: string
   severity: 'low' | 'medium' | 'high' | 'critical'
-  context?: Record<string, any>
+  context?: Record<string, unknown>
   timestamp: Date
   userId?: string
 }
@@ -267,13 +275,13 @@ export interface FormField {
     minLength?: number
     maxLength?: number
     pattern?: RegExp
-    custom?: (value: any) => string | null
+    custom?: (value: unknown) => string | null
   }
   options?: Array<{ value: string; label: string }>
 }
 
 export interface FormState {
-  values: Record<string, any>
+  values: Record<string, unknown>
   errors: Record<string, string>
   touched: Record<string, boolean>
   isSubmitting: boolean

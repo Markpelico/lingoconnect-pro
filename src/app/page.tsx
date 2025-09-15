@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Mic, 
@@ -14,10 +14,16 @@ import {
   Globe,
   Zap,
   Shield,
-  Sparkles
+  Sparkles,
+  Loader2,
+  AlertCircle,
+  CheckCircle,
+  Trash2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useConversationStore } from '@/store/conversation'
+import { useSpeechRecognitionWithTranslation } from '@/hooks/useSpeechRecognition'
+import { useAutoTextToSpeech } from '@/hooks/useTextToSpeech'
 import { cn } from '@/lib/utils'
 
 // Hero Section Component
@@ -190,24 +196,39 @@ const LanguageSelector = () => {
 // Conversation Interface Component
 const ConversationInterface = () => {
   const { 
-    isListening, 
-    speechResult, 
-    speechError,
+    messages,
     autoSpeak,
-    startListening,
-    stopListening,
     updateSettings 
   } = useConversationStore()
   
-  const [isRecording, setIsRecording] = useState(false)
+  // Enhanced speech recognition with auto-translation
+  const {
+    isListening,
+    isSupported: speechSupported,
+    transcript,
+    interimTranscript,
+    confidence,
+    error: speechError,
+    startListening,
+    stopListening,
+    resetTranscript,
+    isTranslating,
+    translationError
+  } = useSpeechRecognitionWithTranslation()
+  
+  // Text-to-speech for auto-speaking translations
+  const {
+    isSpeaking,
+    isSupported: ttsSupported,
+    error: ttsError
+  } = useAutoTextToSpeech()
 
   const handleMicToggle = () => {
     if (isListening) {
       stopListening()
-      setIsRecording(false)
     } else {
+      resetTranscript()
       startListening()
-      setIsRecording(true)
     }
   }
 
@@ -221,84 +242,216 @@ const ConversationInterface = () => {
       {/* Chat Messages Area */}
       <div className="h-96 overflow-y-auto border-b border-gray-200 p-6 dark:border-gray-700">
         <AnimatePresence>
-          {speechResult ? (
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="mb-4 rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20"
-            >
-              <div className="mb-2 text-sm font-medium text-blue-800 dark:text-blue-200">
-                You said:
-              </div>
-              <div className="text-gray-900 dark:text-white">
-                {speechResult.transcript}
-              </div>
-              <div className="mt-2 text-xs text-gray-500">
-                Confidence: {Math.round(speechResult.confidence * 100)}%
-              </div>
-            </motion.div>
+          {messages.length > 0 ? (
+            <div className="space-y-4">
+              {messages.map((message) => (
+                <motion.div
+                  key={message.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className={cn(
+                    "rounded-lg p-4 max-w-[80%]",
+                    message.userId === 'user' 
+                      ? "ml-auto bg-blue-500 text-white" 
+                      : "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white"
+                  )}
+                >
+                  <div className="mb-2 text-sm opacity-75">
+                    {message.userId === 'user' ? 'You' : 'Assistant'} • {message.language}
+                  </div>
+                  
+                  {/* Original text */}
+                  <div className="mb-2 font-medium">
+                    {message.content}
+                  </div>
+                  
+                  {/* Translation */}
+                  {message.translatedContent && (
+                    <div className="border-t border-white/20 pt-2 text-sm opacity-90">
+                      <div className="mb-1 text-xs uppercase tracking-wide">
+                        Translation ({message.targetLanguage}):
+                      </div>
+                      <div>{message.translatedContent}</div>
+                    </div>
+                  )}
+                  
+                  {/* Confidence score */}
+                  {message.confidence && (
+                    <div className="mt-2 flex items-center gap-2 text-xs opacity-75">
+                      <CheckCircle className="h-3 w-3" />
+                      {Math.round(message.confidence * 100)}% confidence
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </div>
           ) : (
             <div className="flex h-full items-center justify-center text-gray-500 dark:text-gray-400">
               <div className="text-center">
                 <Mic className="mx-auto mb-4 h-12 w-12 opacity-50" />
-                <p className="text-lg">Start speaking to see real-time translation</p>
+                <p className="text-lg mb-2">Start speaking to see real-time translation</p>
+                <p className="text-sm">
+                  {speechSupported ? "Click the microphone and speak" : "Speech recognition not supported"}
+                </p>
               </div>
             </div>
           )}
+          
+          {/* Current speech input */}
+          {(transcript || interimTranscript) && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-lg border-2 border-dashed border-blue-300 bg-blue-50 p-4 dark:border-blue-600 dark:bg-blue-900/20"
+            >
+              <div className="mb-2 flex items-center gap-2 text-sm font-medium text-blue-800 dark:text-blue-200">
+                <Mic className={cn("h-4 w-4", isListening && "animate-pulse")} />
+                Listening...
+                {isTranslating && <Loader2 className="h-4 w-4 animate-spin" />}
+              </div>
+              
+              <div className="text-gray-900 dark:text-white">
+                <span className="font-medium">{transcript}</span>
+                <span className="opacity-60">{interimTranscript}</span>
+              </div>
+              
+              {confidence > 0 && (
+                <div className="mt-2 text-xs text-gray-500">
+                  Confidence: {Math.round(confidence * 100)}%
+                </div>
+              )}
+            </motion.div>
+          )}
         </AnimatePresence>
         
-        {speechError && (
+        {/* Error States */}
+        {(speechError || translationError || ttsError) && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="rounded-lg bg-red-50 p-4 text-red-800 dark:bg-red-900/20 dark:text-red-200"
+            className="mt-4 rounded-lg bg-red-50 p-4 text-red-800 dark:bg-red-900/20 dark:text-red-200"
           >
-            {speechError}
+            <div className="flex items-center gap-2 mb-2">
+              <AlertCircle className="h-4 w-4" />
+              <span className="font-medium">Error</span>
+            </div>
+            {speechError && <div>Speech: {speechError}</div>}
+            {translationError && <div>Translation: {translationError}</div>}
+            {ttsError && <div>Text-to-Speech: {ttsError}</div>}
           </motion.div>
         )}
       </div>
       
       {/* Controls */}
       <div className="p-6">
-        <div className="flex items-center justify-center gap-4">
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          {/* Main Microphone Button */}
           <Button
             onClick={handleMicToggle}
-            variant={isRecording ? "danger" : "success"}
+            disabled={!speechSupported}
+            variant={isListening ? "danger" : "success"}
             size="xl"
             className={cn(
               "h-16 w-16 rounded-full transition-all duration-300",
-              isRecording && "animate-pulse shadow-lg shadow-red-500/50"
+              isListening && "animate-pulse shadow-lg shadow-red-500/50",
+              !speechSupported && "opacity-50 cursor-not-allowed"
             )}
           >
-            {isRecording ? (
+            {isListening ? (
               <MicOff className="h-8 w-8" />
             ) : (
               <Mic className="h-8 w-8" />
             )}
           </Button>
           
+          {/* Auto-speak Toggle */}
           <Button
             onClick={() => updateSettings({ autoSpeak: !autoSpeak })}
+            disabled={!ttsSupported}
             variant={autoSpeak ? "default" : "outline"}
             size="lg"
           >
-            {autoSpeak ? (
+            {isSpeaking ? (
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            ) : autoSpeak ? (
               <Volume2 className="mr-2 h-5 w-5" />
             ) : (
               <VolumeX className="mr-2 h-5 w-5" />
             )}
-            Auto-speak
+            Auto-speak {autoSpeak ? "ON" : "OFF"}
           </Button>
           
+          {/* Clear Chat */}
+          <Button 
+            onClick={() => {
+              useConversationStore.getState().clearMessages()
+              resetTranscript()
+            }}
+            variant="outline" 
+            size="lg"
+            disabled={messages.length === 0}
+          >
+            <Trash2 className="mr-2 h-5 w-5" />
+            Clear
+          </Button>
+          
+          {/* Settings */}
           <Button variant="outline" size="lg">
             <Settings className="mr-2 h-5 w-5" />
             Settings
           </Button>
         </div>
         
-        <div className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
-          {isRecording ? "Listening..." : "Click the microphone to start"}
+        {/* Status Display */}
+        <div className="mt-6 text-center">
+          <div className="mb-2 flex items-center justify-center gap-2 text-sm">
+            {isListening && (
+              <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                <span>Listening</span>
+              </div>
+            )}
+            {isTranslating && (
+              <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Translating</span>
+              </div>
+            )}
+            {isSpeaking && (
+              <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
+                <Volume2 className="h-4 w-4" />
+                <span>Speaking</span>
+              </div>
+            )}
+            {!isListening && !isTranslating && !isSpeaking && (
+              <div className="text-gray-500 dark:text-gray-400">
+                {speechSupported ? "Ready to listen" : "Speech recognition not supported"}
+              </div>
+            )}
+          </div>
+          
+          {/* Feature Support Indicators */}
+          <div className="flex items-center justify-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+            <div className="flex items-center gap-1">
+              <div className={cn(
+                "h-2 w-2 rounded-full",
+                speechSupported ? "bg-green-500" : "bg-red-500"
+              )} />
+              Speech Recognition
+            </div>
+            <div className="flex items-center gap-1">
+              <div className={cn(
+                "h-2 w-2 rounded-full",
+                ttsSupported ? "bg-green-500" : "bg-red-500"
+              )} />
+              Text-to-Speech
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="h-2 w-2 rounded-full bg-green-500" />
+              AI Translation
+            </div>
+          </div>
         </div>
       </div>
     </motion.div>
