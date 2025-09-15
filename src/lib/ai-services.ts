@@ -11,10 +11,17 @@ import type {
   VoiceSynthesisOptions 
 } from '@/types'
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+// Initialize OpenAI client only when needed
+let openai: OpenAI | null = null
+
+function getOpenAIClient() {
+  if (!openai && process.env.OPENAI_API_KEY) {
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    })
+  }
+  return openai
+}
 
 /**
  * OpenAI GPT-4 Translation Service
@@ -23,6 +30,11 @@ const openai = new OpenAI({
 export class OpenAITranslationService {
   async translateText(request: TranslationRequest): Promise<TranslationResponse> {
     try {
+      const client = getOpenAIClient()
+      if (!client) {
+        throw new Error('OpenAI API key not configured')
+      }
+
       const systemPrompt = `You are a professional translator with expertise in cultural nuances and context. 
 Translate the following text from ${this.getLanguageName(request.from)} to ${this.getLanguageName(request.to)}.
 Maintain the tone, cultural context, and any informal expressions appropriately.
@@ -31,7 +43,7 @@ Provide only the translation without explanations.`
       const userPrompt = `Text to translate: "${request.text}"
 ${request.context ? `Context: ${request.context}` : ''}`
 
-      const completion = await openai.chat.completions.create({
+      const completion = await client.chat.completions.create({
         model: "gpt-4",
         messages: [
           { role: "system", content: systemPrompt },
@@ -63,6 +75,11 @@ ${request.context ? `Context: ${request.context}` : ''}`
     conversationHistory: string[] = []
   ): Promise<TranslationResponse> {
     try {
+      const client = getOpenAIClient()
+      if (!client) {
+        throw new Error('OpenAI API key not configured')
+      }
+
       const systemPrompt = `You are an expert translator specializing in real-time conversation translation.
 Translate from ${this.getLanguageName(request.from)} to ${this.getLanguageName(request.to)}.
 Consider the conversation context and maintain natural flow.
@@ -74,7 +91,7 @@ Preserve informal language, slang, and cultural expressions appropriately.`
 
       const userPrompt = `${contextPrompt}Current message to translate: "${request.text}"`
 
-      const completion = await openai.chat.completions.create({
+      const completion = await client.chat.completions.create({
         model: "gpt-4",
         messages: [
           { role: "system", content: systemPrompt },
