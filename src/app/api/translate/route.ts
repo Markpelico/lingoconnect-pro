@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { OpenAITranslationService } from '@/lib/ai-services'
+import { translationService } from '@/lib/translation-service'
 import type { TranslationRequest } from '@/types'
 
 // Rate limiting and caching (for production)
@@ -12,79 +12,6 @@ const RATE_LIMIT_WINDOW = 60 * 1000 // 1 minute
 const RATE_LIMIT_MAX_REQUESTS = 100
 const requestCounts = new Map<string, { count: number; resetTime: number }>()
 
-// Mock translation for demo purposes
-function getMockTranslation(text: string, from: string, to: string): string {
-  const translations: Record<string, Record<string, Record<string, string>>> = {
-    en: {
-      es: {
-        "hello": "hola",
-        "goodbye": "adiós", 
-        "thank you": "gracias",
-        "please": "por favor",
-        "yes": "sí",
-        "no": "no",
-        "how are you": "¿cómo estás?",
-        "what is your name": "¿cómo te llamas?",
-        "i love you": "te amo",
-        "good morning": "buenos días",
-        "good night": "buenas noches"
-      },
-      fr: {
-        "hello": "bonjour",
-        "goodbye": "au revoir",
-        "thank you": "merci",
-        "please": "s'il vous plaît",
-        "yes": "oui",
-        "no": "non"
-      },
-      de: {
-        "hello": "hallo",
-        "goodbye": "auf wiedersehen",
-        "thank you": "danke",
-        "please": "bitte",
-        "yes": "ja",
-        "no": "nein"
-      }
-    },
-    es: {
-      en: {
-        "hola": "hello",
-        "adiós": "goodbye",
-        "gracias": "thank you",
-        "por favor": "please",
-        "sí": "yes",
-        "no": "no"
-      }
-    }
-  }
-
-  // Try exact match first
-  const lowerText = text.toLowerCase().trim()
-  if (translations[from]?.[to]?.[lowerText]) {
-    return translations[from][to][lowerText]
-  }
-
-  // Try partial matches
-  for (const [key, value] of Object.entries(translations[from]?.[to] || {})) {
-    if (lowerText.includes(key.toLowerCase())) {
-      return lowerText.replace(new RegExp(key, 'gi'), value)
-    }
-  }
-
-  // Advanced mock translation for longer text
-  if (from === 'en' && to === 'es') {
-    return `[ES] ${text}` // Simple prefix for demo
-  } else if (from === 'en' && to === 'fr') {
-    return `[FR] ${text}`
-  } else if (from === 'en' && to === 'de') {
-    return `[DE] ${text}`
-  } else if (from === 'es' && to === 'en') {
-    return `[EN] ${text}`
-  }
-
-  // Default fallback
-  return `[TRANSLATED to ${to.toUpperCase()}] ${text}`
-}
 
 function getRateLimitKey(request: NextRequest): string {
   // In production, use user ID or session ID
@@ -181,24 +108,9 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Perform translation
+    // Perform translation with professional service
     const startTime = Date.now()
-    let result
-    
-    try {
-      const translationService = new OpenAITranslationService()
-      result = await translationService.translateText(body)
-    } catch (error) {
-      // Fallback to mock translation for demo purposes
-      console.log('Using mock translation for demo:', error)
-      result = {
-        translatedText: getMockTranslation(body.text, body.from, body.to),
-        confidence: 0.85,
-        detectedLanguage: body.from,
-        alternatives: []
-      }
-    }
-    
+    const result = await translationService.translateText(body)
     const processingTime = Date.now() - startTime
 
     // Log for analytics (in production, use proper logging service)

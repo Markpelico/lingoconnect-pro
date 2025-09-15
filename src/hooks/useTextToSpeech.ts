@@ -238,11 +238,14 @@ export function useAutoTextToSpeech() {
       latestMessage && 
       latestMessage.id !== lastProcessedMessageRef.current &&
       latestMessage.translatedContent &&
-      latestMessage.userId !== 'user' // Don't speak user's own messages
+      latestMessage.userId === 'user' // Speak user's translations so they can hear the result
     ) {
       lastProcessedMessageRef.current = latestMessage.id
+      console.log('🔊 Speaking translation:', latestMessage.translatedContent)
       textToSpeech.speak(latestMessage.translatedContent, {
         language: targetLanguage.code
+      }).catch(error => {
+        console.warn('Text-to-speech failed:', error)
       })
     }
   }, [messages, autoSpeak, targetLanguage.code, textToSpeech])

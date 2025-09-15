@@ -385,7 +385,9 @@ const ConversationInterface = () => {
           {/* Clear Chat */}
           <Button 
             onClick={() => {
-              useConversationStore.getState().clearMessages()
+              console.log('🗑️ Clear button clicked')
+              const store = useConversationStore.getState()
+              store.clearMessages()
               resetTranscript()
             }}
             variant="outline" 
@@ -393,7 +395,7 @@ const ConversationInterface = () => {
             disabled={messages.length === 0}
           >
             <Trash2 className="mr-2 h-5 w-5" />
-            Clear
+            Clear ({messages.length})
           </Button>
           
           {/* Settings */}

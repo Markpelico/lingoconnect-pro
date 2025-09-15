@@ -249,16 +249,20 @@ export function useSpeechRecognitionWithTranslation() {
   })
 
   const handleTranslation = useCallback(async (text: string) => {
+    // Always add the original message first
+    const messageId = Date.now().toString()
+    addMessage({
+      id: messageId,
+      content: text,
+      language: sourceLanguage.code,
+      targetLanguage: targetLanguage.code,
+      timestamp: new Date(),
+      userId: 'user',
+      type: 'text'
+    })
+
+    // Only translate if auto-translate is enabled and languages are different
     if (!autoTranslate || sourceLanguage.code === targetLanguage.code) {
-      // Add message without translation
-      addMessage({
-        id: Date.now().toString(),
-        content: text,
-        language: sourceLanguage.code,
-        timestamp: new Date(),
-        userId: 'user',
-        type: 'text'
-      })
       return
     }
 
@@ -266,6 +270,12 @@ export function useSpeechRecognitionWithTranslation() {
     setTranslationError(null)
 
     try {
+      console.log('Starting translation...', {
+        text,
+        from: sourceLanguage.code.split('-')[0],
+        to: targetLanguage.code.split('-')[0]
+      })
+
       const response = await fetch('/api/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -276,37 +286,25 @@ export function useSpeechRecognitionWithTranslation() {
         })
       })
 
+      console.log('Translation response status:', response.status)
       const result = await response.json()
+      console.log('Translation result:', result)
 
       if (result.success) {
-        // Add original message
-        addMessage({
-          id: Date.now().toString(),
-          content: text,
+        // Update message with translation
+        const store = useConversationStore.getState()
+        store.updateMessage(messageId, {
           translatedContent: result.data.translatedText,
-          language: sourceLanguage.code,
-          targetLanguage: targetLanguage.code,
-          timestamp: new Date(),
-          userId: 'user',
-          type: 'text',
           confidence: result.data.confidence
         })
+        console.log('✅ Translation added to message')
       } else {
-        throw new Error(result.error.message)
+        throw new Error(result.error?.message || 'Translation failed')
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Translation failed'
+      console.error('❌ Translation error:', errorMessage)
       setTranslationError(errorMessage)
-      
-      // Add message without translation as fallback
-      addMessage({
-        id: Date.now().toString(),
-        content: text,
-        language: sourceLanguage.code,
-        timestamp: new Date(),
-        userId: 'user',
-        type: 'text'
-      })
     } finally {
       setIsTranslating(false)
     }

@@ -194,6 +194,7 @@ export const useConversationStore = create<ConversationStore>()(
         
         clearMessages: () => set((state) => {
           state.messages = []
+          console.log('🗑️ Messages cleared')
         }),
         
         // Participant management
