@@ -557,6 +557,25 @@ const FeaturesSection = () => {
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950">
+      {/* Professional Header */}
+      <header className="absolute top-0 left-0 right-0 z-50 bg-black/20 backdrop-blur-sm">
+        <div className="mx-auto max-w-7xl px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <MessageCircle className="h-8 w-8 text-white" />
+              <div>
+                <h1 className="text-white font-bold text-lg">LingoConnect Pro</h1>
+                <p className="text-white/70 text-xs">AI Language Exchange Platform</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-white font-medium text-sm">Created by Mark Pelico</p>
+              <p className="text-white/70 text-xs">Full-Stack Developer</p>
+            </div>
+          </div>
+        </div>
+      </header>
+      
       <HeroSection />
       
       <main className="py-24">
@@ -569,6 +588,55 @@ export default function HomePage() {
       </main>
       
       <FeaturesSection />
+      
+      {/* Professional Footer with Attribution */}
+      <footer className="bg-gray-900 py-12">
+        <div className="mx-auto max-w-7xl px-6 lg:px-8">
+          <div className="text-center space-y-4">
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <MessageCircle className="h-6 w-6 text-blue-400" />
+              <span className="text-xl font-bold text-white">LingoConnect Pro</span>
+            </div>
+            
+            <p className="text-gray-300">
+              Enterprise AI Language Exchange Platform
+            </p>
+            
+            <div className="border-t border-gray-700 pt-6 mt-6">
+              <p className="text-gray-400 text-sm">
+                &copy; 2025 LingoConnect Pro. Built with passion for connecting cultures.
+              </p>
+              <p className="text-gray-300 font-medium mt-2">
+                Created by <span className="text-blue-400 font-semibold">Mark Pelico</span>
+              </p>
+              <div className="flex items-center justify-center gap-6 mt-4 text-sm">
+                <a 
+                  href="https://github.com/Markpelico/lingoconnect-pro" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-gray-400 hover:text-blue-400 transition-colors flex items-center gap-2"
+                >
+                  <Globe className="h-4 w-4" />
+                  Source Code
+                </a>
+                <span className="text-gray-600">•</span>
+                <span className="text-gray-400">
+                  Full-Stack Developer Portfolio
+                </span>
+                <span className="text-gray-600">•</span>
+                <span className="text-gray-400">
+                  Next.js • TypeScript • AI Integration
+                </span>
+              </div>
+            </div>
+            
+            <div className="text-xs text-gray-500 mt-4 pt-4 border-t border-gray-800">
+              <p>This application demonstrates enterprise-level full-stack development skills</p>
+              <p>featuring real-time AI translation, speech recognition, and modern web technologies.</p>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }

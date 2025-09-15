@@ -294,11 +294,12 @@ This project demonstrates expertise in:
 
 ## 📞 **Contact**
 
-**Your Name** - [your.email@example.com](mailto:your.email@example.com)
+**Mark Pelico** - Full-Stack Developer & AI Integration Specialist
 
-**Portfolio**: [yourportfolio.com](https://yourportfolio.com)
-**LinkedIn**: [linkedin.com/in/yourname](https://linkedin.com/in/yourname)
-**GitHub**: [github.com/yourusername](https://github.com/yourusername)
+**GitHub**: [github.com/Markpelico](https://github.com/Markpelico)
+**Portfolio**: This project showcases enterprise-level development skills
+**Project Repository**: [github.com/Markpelico/lingoconnect-pro](https://github.com/Markpelico/lingoconnect-pro)
+**Live Demo**: [LingoConnect Pro on Vercel](https://lingoconnect-pro.vercel.app)
 
 ---
 
