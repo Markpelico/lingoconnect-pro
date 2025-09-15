@@ -1,0 +1,372 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication and profiles
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  emailVerified   DateTime?
+  name            String?
+  avatar          String?
+  username        String?  @unique
+  
+  // Language preferences
+  nativeLanguages  String[] // Language codes like ['en', 'es']
+  learningLanguages String[] // Languages user wants to learn
+  proficiencyLevels Json    // { "en": "native", "es": "intermediate" }
+  
+  // User preferences
+  preferences      Json    // User settings and preferences
+  
+  // Account status
+  isActive         Boolean  @default(true)
+  isOnline         Boolean  @default(false)
+  lastSeen         DateTime @default(now())
+  
+  // Timestamps
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  // Relations
+  accounts         Account[]
+  sessions         Session[]
+  
+  // Conversation relationships
+  createdRooms     ConversationRoom[] @relation("RoomCreator")
+  roomMemberships  RoomMember[]
+  messages         Message[]
+  
+  // Friend relationships
+  sentRequests     FriendRequest[] @relation("FriendRequestSender")
+  receivedRequests FriendRequest[] @relation("FriendRequestReceiver")
+  friendships      Friendship[]    @relation("UserFriendships")
+  friendOf         Friendship[]    @relation("FriendOfUser")
+  
+  // Activity tracking
+  sessions_logged  UserSession[]
+  achievements     UserAchievement[]
+  
+  @@map("users")
+}
+
+// NextAuth.js required models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// Conversation Room model
+model ConversationRoom {
+  id            String   @id @default(cuid())
+  name          String?
+  description   String?
+  
+  // Room settings
+  isPrivate     Boolean  @default(false)
+  maxParticipants Int    @default(10)
+  allowRecording Boolean @default(true)
+  autoModeration Boolean @default(false)
+  requireApproval Boolean @default(false)
+  allowedLanguages String[] // Restrict to specific languages
+  
+  // Room metadata
+  languages     String[] // Active languages in room
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastActivity  DateTime @default(now())
+  
+  // Room status
+  isActive      Boolean  @default(true)
+  
+  // Relations
+  creator       User          @relation("RoomCreator", fields: [createdBy], references: [id])
+  members       RoomMember[]
+  messages      Message[]
+  
+  @@map("conversation_rooms")
+}
+
+// Room membership model
+model RoomMember {
+  id         String   @id @default(cuid())
+  userId     String
+  roomId     String
+  role       RoomRole @default(MEMBER)
+  joinedAt   DateTime @default(now())
+  leftAt     DateTime?
+  isActive   Boolean  @default(true)
+  
+  // Member preferences for this room
+  notifications Boolean @default(true)
+  
+  // Relations
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room       ConversationRoom  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, roomId])
+  @@map("room_members")
+}
+
+enum RoomRole {
+  ADMIN
+  MODERATOR
+  MEMBER
+}
+
+// Message model
+model Message {
+  id               String      @id @default(cuid())
+  content          String
+  translatedContent String?
+  
+  // Language information
+  language         String      // Source language
+  targetLanguage   String?     // Target language for translation
+  confidence       Float?      // Translation confidence score
+  
+  // Message metadata
+  type             MessageType @default(TEXT)
+  userId           String
+  roomId           String
+  
+  // Message status
+  isEdited         Boolean     @default(false)
+  isDeleted        Boolean     @default(false)
+  
+  // Timestamps
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  
+  // Relations
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room             ConversationRoom   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  reactions        MessageReaction[]
+  
+  @@map("messages")
+}
+
+enum MessageType {
+  TEXT
+  AUDIO
+  TRANSLATION
+  SYSTEM
+}
+
+// Message reactions
+model MessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String   // Emoji reaction
+  createdAt DateTime @default(now())
+  
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  
+  @@unique([messageId, userId, emoji])
+  @@map("message_reactions")
+}
+
+// Friend request system
+model FriendRequest {
+  id         String              @id @default(cuid())
+  senderId   String
+  receiverId String
+  status     FriendRequestStatus @default(PENDING)
+  message    String?
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  
+  sender     User                @relation("FriendRequestSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User                @relation("FriendRequestReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  
+  @@unique([senderId, receiverId])
+  @@map("friend_requests")
+}
+
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+// Friendship model
+model Friendship {
+  id        String   @id @default(cuid())
+  userId    String
+  friendId  String
+  createdAt DateTime @default(now())
+  
+  user      User     @relation("UserFriendships", fields: [userId], references: [id], onDelete: Cascade)
+  friend    User     @relation("FriendOfUser", fields: [friendId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, friendId])
+  @@map("friendships")
+}
+
+// User session tracking
+model UserSession {
+  id          String   @id @default(cuid())
+  userId      String
+  startTime   DateTime @default(now())
+  endTime     DateTime?
+  duration    Int?     // Duration in seconds
+  
+  // Session data
+  device      String?
+  browser     String?
+  ipAddress   String?
+  country     String?
+  
+  // Activity metrics
+  messagesCount    Int @default(0)
+  translationsUsed Int @default(0)
+  roomsJoined      Int @default(0)
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("user_sessions")
+}
+
+// Achievement system
+model Achievement {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String
+  icon        String?
+  category    String  // "translation", "social", "learning", etc.
+  points      Int     @default(0)
+  
+  // Achievement criteria
+  criteria    Json    // Flexible criteria definition
+  
+  // Status
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  userAchievements UserAchievement[]
+  
+  @@map("achievements")
+}
+
+model UserAchievement {
+  id            String      @id @default(cuid())
+  userId        String
+  achievementId String
+  unlockedAt    DateTime    @default(now())
+  progress      Float       @default(1.0) // 0.0 to 1.0
+  
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, achievementId])
+  @@map("user_achievements")
+}
+
+// Language learning progress
+model LanguageLearningProgress {
+  id               String   @id @default(cuid())
+  userId           String
+  language         String   // Language code
+  proficiencyLevel String   // "beginner", "intermediate", "advanced", "native"
+  
+  // Progress metrics
+  wordsLearned     Int      @default(0)
+  conversationTime Int      @default(0) // Minutes spent in conversations
+  translationsUsed Int      @default(0)
+  
+  // Skill breakdown
+  listening        Float    @default(0.0) // 0.0 to 10.0
+  speaking         Float    @default(0.0)
+  reading          Float    @default(0.0)
+  writing          Float    @default(0.0)
+  
+  // Timestamps
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  @@unique([userId, language])
+  @@map("language_learning_progress")
+}
+
+// Analytics and metrics
+model ConversationAnalytics {
+  id                String   @id @default(cuid())
+  roomId            String
+  date              DateTime @default(now())
+  
+  // Metrics
+  participantCount  Int
+  messageCount      Int
+  translationCount  Int
+  averageResponse   Float?   // Average response time in seconds
+  languages         String[] // Languages used in conversation
+  
+  // Engagement metrics
+  activeMinutes     Int      @default(0)
+  peakParticipants  Int      @default(0)
+  
+  @@map("conversation_analytics")
+}
+
+// System-wide settings and configurations
+model SystemConfig {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  category    String   @default("general")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("system_config")
+}
