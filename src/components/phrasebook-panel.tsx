@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { BookMarked, Check, Eye, Info, Trash2, Volume2, X } from 'lucide-react'
+import { BookMarked, Check, Eye, Info, Mic, Trash2, Volume2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { usePhrasebook } from '@/store/phrasebook'
 import { computeStats, selectDuePhrases, MAX_BOX } from '@/lib/phrases'
 import { textToSpeech } from '@/lib/speech-synthesis'
+import { useSpokenRecall } from '@/hooks/useSpokenRecall'
+import { cn } from '@/lib/utils'
 import { LANGUAGES } from '@/store/session'
 
 function languageName(code: string) {
@@ -15,6 +17,126 @@ function languageName(code: string) {
 
 function isRtl(code: string) {
   return LANGUAGES.find((l) => l.code === code)?.rtl ?? false
+}
+
+/**
+ * Say the phrase and have the recogniser check you.
+ *
+ * The verdict is deliberately cautious. A clear match advances the card, but
+ * anything less hands the decision back rather than telling you that you were
+ * wrong, because browser speech recognition is not reliable enough on
+ * non-native speech to make that claim.
+ */
+function RecallAttempt({
+  expected,
+  language,
+  onPassed,
+  onReveal,
+}: {
+  expected: string
+  language: string
+  onPassed: () => void
+  onReveal: () => void
+}) {
+  const { status, isListening, isSupported, judgement, heard, error, listen, reset } =
+    useSpokenRecall()
+
+  // The recogniser is per-browser, so hold rendering until we know.
+  const [checked, setChecked] = useState(false)
+  useEffect(() => setChecked(true), [])
+
+  const attempt = async () => {
+    const result = await listen(expected, language)
+    if (result?.verdict === 'match') {
+      // Let the confirmation land before the card flips.
+      setTimeout(onPassed, 900)
+    }
+  }
+
+  if (checked && !isSupported) return null
+
+  if (status === 'done' && judgement) {
+    const { verdict } = judgement
+
+    const copy = {
+      match: { title: 'That was it', body: 'Moving this one further out.' },
+      close: {
+        title: 'Close',
+        body: 'Some words were missing. Your call whether that counts.',
+      },
+      different: {
+        title: 'That did not sound like it',
+        body: 'Though the recogniser may have misheard you.',
+      },
+      unclear: {
+        title: "Didn't catch that",
+        body: 'No verdict from me. Check the answer and grade yourself.',
+      },
+    }[verdict]
+
+    return (
+      <div
+        className={cn(
+          'rounded-[10px] border px-3 py-2.5',
+          verdict === 'match'
+            ? 'border-accent bg-accent-wash'
+            : 'border-line bg-surface-sunk'
+        )}
+        aria-live="polite"
+      >
+        <p className="text-sm font-medium text-ink">{copy.title}</p>
+        <p className="mt-0.5 text-xs leading-relaxed text-ink-soft">{copy.body}</p>
+
+        {/* Always show the transcript, so a bad verdict is explainable. */}
+        {heard && (
+          <p className="mt-2 text-xs text-ink-muted">
+            Heard: <span lang={language}>{heard}</span>
+          </p>
+        )}
+
+        {verdict !== 'match' && (
+          <div className="mt-3 flex gap-2">
+            <Button onClick={reset} variant="outline" size="sm" className="flex-1">
+              Try again
+            </Button>
+            <Button onClick={onReveal} variant="outline" size="sm" className="flex-1">
+              Show answer
+            </Button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  if (status === 'error' && error) {
+    return (
+      <div className="rounded-[10px] bg-live-wash px-3 py-2.5" aria-live="polite">
+        <p className="text-xs text-live">{error}</p>
+        <Button onClick={reset} variant="outline" size="sm" className="mt-2 w-full">
+          Try again
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <Button onClick={attempt} disabled={isListening} className="w-full">
+      {isListening ? (
+        <>
+          <span className="relative flex h-2 w-2" aria-hidden>
+            <span className="pulse-ring absolute inset-0 rounded-full bg-accent-ink" />
+            <span className="h-2 w-2 rounded-full bg-accent-ink" />
+          </span>
+          Listening
+        </>
+      ) : (
+        <>
+          <Mic className="h-4 w-4" strokeWidth={2} aria-hidden />
+          Say it
+        </>
+      )}
+    </Button>
+  )
 }
 
 function Stat({ value, label }: { value: number; label: string }) {
@@ -172,14 +294,23 @@ export function PhrasebookPanel() {
                   </div>
                 </motion.div>
               ) : (
-                <Button
-                  onClick={() => setRevealed(true)}
-                  variant="outline"
-                  className="mt-4 w-full"
-                >
-                  <Eye className="h-4 w-4" strokeWidth={2} aria-hidden />
-                  Show answer
-                </Button>
+                <div className="mt-4 space-y-3">
+                  <RecallAttempt
+                    expected={current.translatedText}
+                    language={current.targetLanguage}
+                    onPassed={() => handleReview(true)}
+                    onReveal={() => setRevealed(true)}
+                  />
+
+                  <Button
+                    onClick={() => setRevealed(true)}
+                    variant="ghost"
+                    className="w-full"
+                  >
+                    <Eye className="h-4 w-4" strokeWidth={2} aria-hidden />
+                    Show answer
+                  </Button>
+                </div>
               )}
             </motion.div>
           </AnimatePresence>

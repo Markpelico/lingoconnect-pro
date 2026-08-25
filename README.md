@@ -97,6 +97,30 @@ Web Speech API
 Type checking and linting both run in the production build. They are not
 disabled.
 
+## Reviewing out loud
+
+On a review card you can press "Say it" and speak the phrase. The recogniser
+listens in the target language and checks whether you produced roughly the
+right words.
+
+It is a recall check, not pronunciation scoring, and the distinction is the
+whole design. Browser speech recognition is unreliable on non-native speech,
+so a system that graded your accent would confidently fail people who said it
+correctly. Instead:
+
+- accents and punctuation are normalised away before comparing, because
+  recognisers emit them inconsistently
+- every alternative the recogniser returns is scored, and the most generous
+  one wins
+- a clear match advances the card
+- anything less hands the decision back to you rather than marking you wrong
+- when confidence is low, the verdict is "didn't catch that", never "wrong"
+- the transcript is always shown, so any verdict can be checked
+
+Scoring takes the better of Levenshtein similarity and word overlap. Character
+distance alone punishes a correct-but-reordered answer; word overlap alone
+rewards a wrong answer that shares vocabulary.
+
 ## Tests
 
 ```bash
@@ -135,7 +159,8 @@ Being explicit, since the previous README was not:
 - No multi-user or peer-to-peer conversation. An earlier version had a
   Socket.IO scaffold that was never wired up and could not have run on
   serverless; it has been removed rather than left as decoration.
-- No pronunciation scoring. Review is self-graded.
+- No pronunciation or accent scoring, on purpose. Spoken review checks which
+  words you produced, not how you sounded.
 - Translation quality is bounded by what free providers give you. It is good
   for common phrases and travel language, weaker on idiom and long sentences.
 
