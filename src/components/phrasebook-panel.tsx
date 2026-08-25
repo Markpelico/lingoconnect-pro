@@ -168,6 +168,7 @@ function ExportMenu({ phrases }: { phrases: CapturedPhrase[] }) {
         onClick={() => setOpen((v) => !v)}
         variant="outline"
         size="sm"
+        className="h-11 sm:h-8"
         disabled={phrases.length === 0}
         aria-expanded={open}
         aria-haspopup="menu"
@@ -193,7 +194,7 @@ function ExportMenu({ phrases }: { phrases: CapturedPhrase[] }) {
                 key={format.value}
                 role="menuitem"
                 onClick={() => run(format.value)}
-                className="flex w-full items-baseline justify-between px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-surface-sunk focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent-strong"
+                className="flex min-h-11 w-full items-center justify-between px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-surface-sunk focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent-strong"
               >
                 {format.label}
                 <span className="text-xs text-ink-muted">{format.hint}</span>
@@ -268,7 +269,9 @@ export function PhrasebookPanel() {
 
   return (
     <div className="flex min-h-[420px] flex-col rounded-[16px] border border-line bg-surface-sunk">
-      <div className="flex items-center gap-8 border-b border-line p-4">
+      {/* gap-8 was the widest thing in the panel at 360px and drove the
+          overflow, so it tightens on small screens. */}
+      <div className="flex items-center gap-5 border-b border-line p-4 sm:gap-8">
         <Stat value={stats.total} label="saved" />
         <Stat value={stats.due} label="to review" />
         <Stat value={stats.mastered} label="known" />
@@ -293,7 +296,7 @@ export function PhrasebookPanel() {
           </p>
           <button
             onClick={clearSamples}
-            className="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium text-ink underline underline-offset-2 transition-colors hover:text-accent-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong"
+            className="flex min-h-11 shrink-0 items-center rounded-full px-2 text-xs font-medium text-ink underline underline-offset-2 transition-colors hover:text-accent-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong sm:min-h-0 sm:py-0.5"
           >
             Clear
           </button>
@@ -350,7 +353,7 @@ export function PhrasebookPanel() {
                         })
                       }
                       aria-label="Hear pronunciation"
-                      className="shrink-0 rounded-full p-1.5 text-ink-muted transition-colors hover:bg-surface-sunk hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-surface-sunk hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong sm:h-9 sm:w-9"
                     >
                       <Volume2 className="h-4 w-4" strokeWidth={2} aria-hidden />
                     </button>
@@ -449,7 +452,7 @@ export function PhrasebookPanel() {
               <button
                 onClick={() => remove(phrase.id)}
                 aria-label={`Remove "${phrase.sourceText}"`}
-                className="shrink-0 rounded-full p-1 text-ink-muted opacity-0 transition-opacity hover:text-live focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong group-hover:opacity-100"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-muted transition-opacity hover:text-live focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong sm:h-9 sm:w-9 sm:opacity-0 sm:group-hover:opacity-100"
               >
                 <Trash2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
               </button>

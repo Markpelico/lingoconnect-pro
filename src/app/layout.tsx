@@ -14,11 +14,17 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
+  // Without this the generated og:image resolves against localhost, so a
+  // shared link would point at a machine nobody else can reach.
+  metadataBase: new URL('https://lingoconnect-pro.vercel.app'),
   title: 'LingoConnect - Learn the words you actually needed',
   description:
     'Real-time speech translation that keeps every phrase you reached for, then helps you learn it before the next conversation.',
   authors: [{ name: 'Mark Pelico' }],
   creator: 'Mark Pelico',
+  twitter: {
+    card: 'summary_large_image',
+  },
   openGraph: {
     title: 'LingoConnect',
     description:

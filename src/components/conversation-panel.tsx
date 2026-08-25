@@ -92,7 +92,7 @@ function TurnCard({
             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
               <button
                 onClick={() => onReplay(turn.translatedText!)}
-                className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs text-ink-muted transition-colors hover:bg-surface-sunk hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-2 py-1 text-xs text-ink-muted transition-colors hover:bg-surface-sunk hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong sm:min-h-0"
               >
                 <Volume2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
                 Play again
@@ -338,12 +338,12 @@ export function ConversationPanel() {
         </div>
 
         <div className="mt-3 flex items-center justify-between gap-3">
-          <label className="flex cursor-pointer items-center gap-2 text-xs text-ink-muted">
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 py-1 text-xs text-ink-muted sm:min-h-0">
             <input
               type="checkbox"
               checked={autoSpeak}
               onChange={(e) => updateSettings({ autoSpeak: e.target.checked })}
-              className="h-3.5 w-3.5 accent-[var(--accent-strong)]"
+              className="h-4 w-4 accent-[var(--accent-strong)]"
             />
             Speak translations aloud
           </label>
@@ -351,7 +351,7 @@ export function ConversationPanel() {
           {turns.length > 0 && (
             <button
               onClick={clearTurns}
-              className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-2 py-1 text-xs text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong sm:min-h-0"
             >
               <Trash2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
               Clear

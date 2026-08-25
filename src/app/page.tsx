@@ -39,7 +39,9 @@ function Header() {
               aria-hidden
             />
           </span>
-          <span className="text-[15px] font-semibold tracking-tight text-ink">
+          {/* Below ~380px the wordmark plus three 44px theme targets and the
+              GitHub link no longer fit, so the mark carries the branding. */}
+          <span className="hidden text-[15px] font-semibold tracking-tight text-ink min-[380px]:inline">
             LingoConnect
           </span>
         </div>
@@ -51,7 +53,7 @@ function Header() {
             target="_blank"
             rel="noopener noreferrer"
             aria-label="View source on GitHub"
-            className="rounded-full p-1.5 text-ink-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-ink-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong sm:h-9 sm:w-9"
           >
             <Github className="h-4 w-4" strokeWidth={2} aria-hidden />
           </a>
@@ -73,7 +75,7 @@ function Hero() {
 
   return (
     <section className="mx-auto max-w-6xl px-5 pt-12 pb-16 lg:pt-20">
-      <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)] lg:gap-14">
+      <div className="grid items-center gap-10 [&>*]:min-w-0 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)] lg:gap-14">
         <motion.div
           initial={reduce ? false : { opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -114,7 +116,7 @@ function PhrasebookSection() {
   return (
     <section className="border-t border-line bg-surface">
       <div className="mx-auto max-w-6xl px-5 py-16 lg:py-20">
-        <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] lg:gap-14">
+        <div className="grid items-center gap-10 [&>*]:min-w-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] lg:gap-14">
           <Reveal>
             <PhrasebookPanel />
           </Reveal>

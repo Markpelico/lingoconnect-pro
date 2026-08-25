@@ -113,7 +113,7 @@ export function ThemeToggle() {
             title={label}
             onClick={() => setTheme(value)}
             className={cn(
-              'rounded-full p-1.5 transition-colors',
+              'flex h-11 w-11 items-center justify-center rounded-full transition-colors sm:h-9 sm:w-9',
               active
                 ? 'bg-accent text-accent-ink'
                 : 'text-ink-muted hover:text-ink'

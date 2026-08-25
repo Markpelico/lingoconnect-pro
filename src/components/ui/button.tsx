@@ -29,11 +29,13 @@ const buttonVariants = cva(
         ghost: 'text-ink-soft hover:bg-surface-sunk hover:text-ink',
         live: 'bg-live text-white hover:opacity-90',
       },
+      // Heights step up to a 44px finger target on small screens and settle
+      // back to the tighter desktop scale from `sm` up.
       size: {
-        sm: 'h-8 px-3 text-xs',
-        md: 'h-10 px-4 text-sm',
+        sm: 'h-9 px-3 text-xs sm:h-8',
+        md: 'h-11 px-4 text-sm sm:h-10',
         lg: 'h-12 px-6 text-base',
-        icon: 'h-10 w-10',
+        icon: 'h-11 w-11 sm:h-10 sm:w-10',
       },
     },
     defaultVariants: {
