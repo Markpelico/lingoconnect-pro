@@ -178,3 +178,7 @@ Being explicit, since the previous README was not:
 - A mobile app, which is where this concept actually belongs. The whole
   premise is being physically present in a conversation, and that is not a
   desktop situation.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
