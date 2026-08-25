@@ -18,6 +18,8 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      // Generated HTML coverage report, not source.
+      "coverage/**",
     ],
   },
 ];

@@ -97,12 +97,41 @@ Web Speech API
 Type checking and linting both run in the production build. They are not
 disabled.
 
+## Tests
+
+```bash
+npm test              # 91 tests
+npm run test:coverage # with coverage thresholds enforced
+```
+
+Vitest, covering the domain logic and the API route:
+
+| Area | Coverage |
+|---|---|
+| `lib/phrases.ts` (Leitner scheduling) | 100% |
+| `lib/translation/index.ts` (provider chain) | 100% |
+| `lib/translation/providers.ts` | 96% |
+| `app/api/translate/route.ts` | 92% |
+
+The interesting cases are the ones that bite in practice: a lapse counting
+only when a previously known phrase is forgotten, MyMemory reporting an
+exhausted quota in-band with HTTP 200, Apertium refusing a pair without
+touching the network, and the chain throwing rather than inventing text when
+every provider is down.
+
+The Web Speech API wrappers are excluded from coverage deliberately. Covering
+them would mean mocking `SpeechRecognition` wholesale, which tests the mock
+rather than the code, so they are verified by hand in the browser instead.
+
+CI runs typecheck, lint, tests with coverage thresholds, and a production
+build on every push and pull request.
+
 ## What is not built
 
 Being explicit, since the previous README was not:
 
 - No accounts, no sync. Phrases live in one browser and do not follow you.
-- No automated tests.
+- No end-to-end browser tests. The unit suite covers logic, not the UI.
 - No multi-user or peer-to-peer conversation. An earlier version had a
   Socket.IO scaffold that was never wired up and could not have run on
   serverless; it has been removed rather than left as decoration.
