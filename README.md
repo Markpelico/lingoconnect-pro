@@ -2,6 +2,12 @@
 
 Real-time speech translation that keeps what you reached for.
 
+![Translating a phrase, watching it save to the phrasebook, then reviewing it and moving it forward on the schedule](docs/demo.gif)
+
+<sub>Recorded with typed input. Speaking is the primary input and runs through
+the same path; it just needs a microphone, which a screen recorder does not
+have.</sub>
+
 You speak, it translates out loud so the conversation keeps moving, and it
 quietly saves the phrase. Later it asks you for that phrase again, and again,
 until you own it.
