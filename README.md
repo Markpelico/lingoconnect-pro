@@ -2,7 +2,7 @@
 
 Real-time speech translation that keeps what you reached for.
 
-![Translating a phrase, watching it save to the phrasebook, then reviewing it and moving it forward on the schedule](docs/demo.gif)
+![Translating a phrase, watching it save to the phrasebook, reviewing it, and exporting the collection](docs/demo.gif)
 
 <sub>Recorded with typed input. Speaking is the primary input and runs through
 the same path; it just needs a microphone, which a screen recorder does not
