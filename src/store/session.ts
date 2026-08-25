@@ -33,22 +33,23 @@ export interface Turn {
 }
 
 /**
- * Locale codes are what the Web Speech API wants; the `translate` field is the
- * ISO 639-1 code the translation providers want.
+ * Full BCP 47 locales, because that is what the Web Speech API expects. The
+ * translation providers want the bare ISO 639-1 code, which is derived where
+ * it is needed rather than stored twice.
  */
 export const LANGUAGES: Language[] = [
-  { code: 'en-US', name: 'English', flag: '🇺🇸' },
-  { code: 'es-ES', name: 'Spanish', flag: '🇪🇸' },
-  { code: 'fr-FR', name: 'French', flag: '🇫🇷' },
-  { code: 'de-DE', name: 'German', flag: '🇩🇪' },
-  { code: 'it-IT', name: 'Italian', flag: '🇮🇹' },
-  { code: 'pt-BR', name: 'Portuguese', flag: '🇧🇷' },
-  { code: 'ja-JP', name: 'Japanese', flag: '🇯🇵' },
-  { code: 'ko-KR', name: 'Korean', flag: '🇰🇷' },
-  { code: 'zh-CN', name: 'Chinese', flag: '🇨🇳' },
-  { code: 'ar-SA', name: 'Arabic', flag: '🇸🇦', rtl: true },
-  { code: 'hi-IN', name: 'Hindi', flag: '🇮🇳' },
-  { code: 'ru-RU', name: 'Russian', flag: '🇷🇺' },
+  { code: 'en-US', name: 'English' },
+  { code: 'es-ES', name: 'Spanish' },
+  { code: 'fr-FR', name: 'French' },
+  { code: 'de-DE', name: 'German' },
+  { code: 'it-IT', name: 'Italian' },
+  { code: 'pt-BR', name: 'Portuguese' },
+  { code: 'ja-JP', name: 'Japanese' },
+  { code: 'ko-KR', name: 'Korean' },
+  { code: 'zh-CN', name: 'Chinese' },
+  { code: 'ar-SA', name: 'Arabic', rtl: true },
+  { code: 'hi-IN', name: 'Hindi' },
+  { code: 'ru-RU', name: 'Russian' },
 ]
 
 interface SessionState {

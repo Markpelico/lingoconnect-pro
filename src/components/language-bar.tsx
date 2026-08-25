@@ -3,6 +3,17 @@
 import { ArrowLeftRight } from 'lucide-react'
 import { LANGUAGES, useSession } from '@/store/session'
 
+/**
+ * Two-letter code shown beside each language.
+ *
+ * This used to be a flag emoji, which Windows renders as the raw regional
+ * indicator letters ("us English") because it ships no flag glyphs. A code
+ * reads the same everywhere.
+ */
+function shortCode(code: string): string {
+  return code.split('-')[0].toUpperCase()
+}
+
 function LanguageSelect({
   id,
   label,
@@ -31,7 +42,7 @@ function LanguageSelect({
       >
         {LANGUAGES.map((lang) => (
           <option key={lang.code} value={lang.code}>
-            {lang.flag} {lang.name}
+            {shortCode(lang.code)} - {lang.name}
           </option>
         ))}
       </select>

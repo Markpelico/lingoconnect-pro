@@ -10,7 +10,6 @@ export interface Language {
   /** BCP 47 locale, e.g. "es-ES". The Web Speech API wants the full locale. */
   code: string
   name: string
-  flag: string
   /** Right-to-left script, used to set `dir` on rendered translations. */
   rtl?: boolean
 }
