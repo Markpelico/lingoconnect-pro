@@ -34,6 +34,12 @@ export interface CapturedPhrase {
   /** How many times a known phrase was later forgotten. */
   lapseCount: number
   lastReviewedAt?: string
+
+  /**
+   * Seeded demo content rather than something the user captured. Labelled as
+   * such in the UI, and cleared as soon as a real phrase is saved.
+   */
+  isSample?: boolean
 }
 
 /** Days until the next review, indexed by Leitner box. */

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { BookMarked, Check, Eye, Trash2, Volume2, X } from 'lucide-react'
+import { BookMarked, Check, Eye, Info, Trash2, Volume2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { usePhrasebook } from '@/store/phrasebook'
 import { computeStats, selectDuePhrases, MAX_BOX } from '@/lib/phrases'
@@ -32,14 +32,22 @@ export function PhrasebookPanel() {
   const phrases = usePhrasebook((s) => s.phrases)
   const review = usePhrasebook((s) => s.review)
   const remove = usePhrasebook((s) => s.remove)
+  const seedSamples = usePhrasebook((s) => s.seedSamples)
+  const clearSamples = usePhrasebook((s) => s.clearSamples)
 
   const [revealed, setRevealed] = useState(false)
   const [mounted, setMounted] = useState(false)
   const reduce = useReducedMotion()
 
   // Phrases live in localStorage, so the server renders none. Wait for
-  // hydration before rendering counts to avoid a mismatch.
-  useEffect(() => setMounted(true), [])
+  // hydration before rendering counts to avoid a mismatch, then seed the
+  // samples so a first-time visitor can see what this panel is for.
+  useEffect(() => {
+    setMounted(true)
+    seedSamples()
+  }, [seedSamples])
+
+  const showingSamples = phrases.some((p) => p.isSample)
 
   const stats = useMemo(() => computeStats(phrases), [phrases])
   const due = useMemo(() => selectDuePhrases(phrases), [phrases])
@@ -76,6 +84,31 @@ export function PhrasebookPanel() {
         <Stat value={stats.due} label="to review" />
         <Stat value={stats.mastered} label="known" />
       </div>
+
+      {/*
+        Labelled rather than passed off as the visitor's own history. The whole
+        product claim is that these are phrases you personally reached for, so
+        quietly faking them would undercut the thing being demonstrated.
+      */}
+      {showingSamples && (
+        <div className="flex items-start gap-2.5 border-b border-line bg-accent-wash px-4 py-3">
+          <Info
+            className="mt-0.5 h-4 w-4 shrink-0 text-ink-soft"
+            strokeWidth={2}
+            aria-hidden
+          />
+          <p className="flex-1 text-xs leading-relaxed text-ink-soft">
+            Sample phrases, so you can try the review flow right away. They make
+            way for your own the moment you save one.
+          </p>
+          <button
+            onClick={clearSamples}
+            className="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium text-ink underline underline-offset-2 transition-colors hover:text-accent-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong"
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-1 flex-col justify-center p-4">
         {current ? (
