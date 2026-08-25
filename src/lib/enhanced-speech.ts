@@ -5,7 +5,7 @@
 
 import { debounce } from '@/lib/utils'
 
-interface EnhancedSpeechConfig {
+export interface EnhancedSpeechConfig {
   language: string
   continuous?: boolean
   interimResults?: boolean
@@ -15,7 +15,7 @@ interface EnhancedSpeechConfig {
   maxRetries?: number
 }
 
-interface SpeechResult {
+export interface SpeechResult {
   transcript: string
   confidence: number
   isFinal: boolean
@@ -30,7 +30,7 @@ interface VoiceActivityState {
 }
 
 export class EnhancedSpeechRecognition {
-  private recognition: any = null
+  private recognition: SpeechRecognition | null = null
   private isListening = false
   private isSupported = false
   private config: Required<EnhancedSpeechConfig>
@@ -45,8 +45,8 @@ export class EnhancedSpeechRecognition {
   private onVoiceActivity?: (isActive: boolean) => void
   private onStatusChange?: (status: 'idle' | 'listening' | 'processing' | 'error') => void
   
-  private autoStopTimer?: NodeJS.Timeout
-  private noSpeechTimer?: NodeJS.Timeout
+  private autoStopTimer?: ReturnType<typeof setTimeout>
+  private noSpeechTimer?: ReturnType<typeof setTimeout>
   private retryCount = 0
 
   constructor(config: EnhancedSpeechConfig) {
@@ -66,15 +66,16 @@ export class EnhancedSpeechRecognition {
   private initializeRecognition() {
     if (typeof window === 'undefined') return
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    const SpeechRecognitionCtor =
+      window.SpeechRecognition ?? window.webkitSpeechRecognition
     
-    if (!SpeechRecognition) {
+    if (!SpeechRecognitionCtor) {
       console.warn('Speech recognition not supported')
       this.isSupported = false
       return
     }
 
-    this.recognition = new SpeechRecognition()
+    this.recognition = new SpeechRecognitionCtor()
     this.isSupported = true
     
     // Enhanced configuration for maximum accuracy
@@ -88,8 +89,8 @@ export class EnhancedSpeechRecognition {
       // Chrome-specific optimizations
       try {
         this.recognition.serviceURI = 'wss://www.google.com/speech-api/v2/recognize'
-      } catch (e) {
-        // Fallback gracefully
+      } catch {
+        // serviceURI is not writable in every Chrome build.
       }
     }
 
@@ -100,14 +101,13 @@ export class EnhancedSpeechRecognition {
     if (!this.recognition) return
 
     this.recognition.onstart = () => {
-      console.log('🎤 Speech recognition started')
       this.isListening = true
       this.retryCount = 0
       this.onStatusChange?.('listening')
       this.startAutoStopTimer()
     }
 
-    this.recognition.onresult = (event: any) => {
+    this.recognition.onresult = (event: SpeechRecognitionEvent) => {
       this.onStatusChange?.('processing')
       this.resetNoSpeechTimer()
       
@@ -126,9 +126,11 @@ export class EnhancedSpeechRecognition {
 
         // Filter by confidence threshold
         if (confidence >= this.config.confidenceThreshold || !isFinal) {
-          const alternatives = Array.from(result)
+          const alternatives = Array.from(
+            result as unknown as ArrayLike<SpeechRecognitionAlternative>
+          )
             .slice(0, 5)
-            .map((alt: any, index: number) => ({
+            .map((alt, index) => ({
               transcript: alt.transcript.trim(),
               confidence: alt.confidence || (0.9 - index * 0.1)
             }))
@@ -150,8 +152,8 @@ export class EnhancedSpeechRecognition {
       }
     }
 
-    this.recognition.onerror = (event: any) => {
-      console.error('🚨 Speech recognition error:', event.error)
+    this.recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      console.error('Speech recognition error:', event.error)
       this.isListening = false
       this.onStatusChange?.('error')
       
@@ -161,8 +163,7 @@ export class EnhancedSpeechRecognition {
       if (this.shouldRetry(event.error)) {
         this.retryCount++
         if (this.retryCount <= this.config.maxRetries) {
-          console.log(`🔄 Retrying speech recognition (${this.retryCount}/${this.config.maxRetries})`)
-          setTimeout(() => this.startListening(), 1000)
+          setTimeout(() => this.restart(), 1000)
           return
         }
       }
@@ -172,7 +173,6 @@ export class EnhancedSpeechRecognition {
     }
 
     this.recognition.onend = () => {
-      console.log('🛑 Speech recognition ended')
       this.isListening = false
       this.onStatusChange?.('idle')
       this.updateVoiceActivity(false)
@@ -181,19 +181,16 @@ export class EnhancedSpeechRecognition {
 
     // Voice activity detection with silence detection
     this.recognition.onspeechstart = () => {
-      console.log('🗣️ Speech detected')
       this.updateVoiceActivity(true)
       this.resetNoSpeechTimer()
     }
 
     this.recognition.onspeechend = () => {
-      console.log('🤐 Speech ended')
       this.updateVoiceActivity(false)
       this.startNoSpeechTimer()
     }
 
     this.recognition.onnomatch = () => {
-      console.log('❓ No speech match found')
       this.startNoSpeechTimer()
     }
   }
@@ -243,7 +240,6 @@ export class EnhancedSpeechRecognition {
   private startAutoStopTimer() {
     this.clearAutoStopTimer()
     this.autoStopTimer = setTimeout(() => {
-      console.log('⏰ Auto-stopping due to timeout')
       this.stopListening()
     }, this.config.autoStopTimeout)
   }
@@ -258,7 +254,6 @@ export class EnhancedSpeechRecognition {
   private startNoSpeechTimer() {
     this.clearNoSpeechTimer()
     this.noSpeechTimer = setTimeout(() => {
-      console.log('🔇 Auto-stopping due to silence')
       this.stopListening()
     }, this.config.noSpeechTimeout)
   }
@@ -281,6 +276,21 @@ export class EnhancedSpeechRecognition {
   }
 
   // Public API methods
+  /**
+   * Resume after a recoverable error, reusing the handlers the caller already
+   * registered. The public startListening() requires them as arguments, which
+   * the retry path has no access to.
+   */
+  private restart() {
+    if (!this.onResult || !this.onError) return
+    this.startListening(
+      this.onResult,
+      this.onError,
+      this.onVoiceActivity,
+      this.onStatusChange
+    )
+  }
+
   public startListening(
     onResult: (result: SpeechResult) => void,
     onError: (error: string) => void,
@@ -293,7 +303,6 @@ export class EnhancedSpeechRecognition {
     }
 
     if (this.isListening) {
-      console.log('🎤 Already listening, stopping first...')
       this.stopListening()
     }
 
@@ -301,6 +310,11 @@ export class EnhancedSpeechRecognition {
     this.onError = onError
     this.onVoiceActivity = onVoiceActivity
     this.onStatusChange = onStatusChange
+
+    if (!this.recognition) {
+      onError('Speech recognition is not available')
+      return
+    }
 
     try {
       this.recognition.start()

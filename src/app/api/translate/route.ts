@@ -1,168 +1,164 @@
 /**
- * Translation API Route
- * Enterprise-grade translation endpoint with multiple providers
+ * POST /api/translate
+ *
+ * Translates a phrase using the free provider chain. Fails loudly rather than
+ * returning invented text — the client renders the failure.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { translationService } from '@/lib/translation-service'
+import {
+  translationService,
+  TranslationUnavailableError,
+} from '@/lib/translation'
 import type { TranslationRequest } from '@/types'
 
-// Rate limiting and caching (for production)
-const RATE_LIMIT_WINDOW = 60 * 1000 // 1 minute
-const RATE_LIMIT_MAX_REQUESTS = 100
+const RATE_LIMIT_WINDOW_MS = 60_000
+const RATE_LIMIT_MAX_REQUESTS = 60
+const MAX_TEXT_LENGTH = 2000
+
+/**
+ * In-memory rate limiting. This is per-instance and resets on cold start,
+ * which is fine for a single-region deployment but would need Redis or
+ * similar to be meaningful across serverless instances.
+ */
 const requestCounts = new Map<string, { count: number; resetTime: number }>()
 
-
 function getRateLimitKey(request: NextRequest): string {
-  // In production, use user ID or session ID
   const forwarded = request.headers.get('x-forwarded-for')
-  const ip = forwarded ? forwarded.split(',')[0] : request.headers.get('x-real-ip') || 'unknown'
-  return ip
+  return (
+    (forwarded ? forwarded.split(',')[0].trim() : null) ??
+    request.headers.get('x-real-ip') ??
+    'unknown'
+  )
 }
 
 function checkRateLimit(key: string): { allowed: boolean; resetTime: number } {
   const now = Date.now()
-  const userLimit = requestCounts.get(key)
+  const entry = requestCounts.get(key)
 
-  if (!userLimit || now > userLimit.resetTime) {
-    // Reset or initialize
-    requestCounts.set(key, { count: 1, resetTime: now + RATE_LIMIT_WINDOW })
-    return { allowed: true, resetTime: now + RATE_LIMIT_WINDOW }
+  if (!entry || now > entry.resetTime) {
+    const resetTime = now + RATE_LIMIT_WINDOW_MS
+    requestCounts.set(key, { count: 1, resetTime })
+    return { allowed: true, resetTime }
   }
 
-  if (userLimit.count >= RATE_LIMIT_MAX_REQUESTS) {
-    return { allowed: false, resetTime: userLimit.resetTime }
+  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return { allowed: false, resetTime: entry.resetTime }
   }
 
-  userLimit.count++
-  return { allowed: true, resetTime: userLimit.resetTime }
+  entry.count++
+  return { allowed: true, resetTime: entry.resetTime }
+}
+
+function errorResponse(
+  message: string,
+  code: string,
+  status: number,
+  extra: Record<string, unknown> = {}
+) {
+  return NextResponse.json(
+    { success: false, error: { message, code, ...extra } },
+    { status }
+  )
 }
 
 export async function POST(request: NextRequest) {
+  const rateLimit = checkRateLimit(getRateLimitKey(request))
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          message: 'Too many requests. Try again in a moment.',
+          code: 'RATE_LIMIT_EXCEEDED',
+          resetTime: rateLimit.resetTime,
+        },
+      },
+      {
+        status: 429,
+        headers: {
+          'X-RateLimit-Limit': String(RATE_LIMIT_MAX_REQUESTS),
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': String(rateLimit.resetTime),
+        },
+      }
+    )
+  }
+
+  let body: TranslationRequest
   try {
-    // Rate limiting
-    const rateLimitKey = getRateLimitKey(request)
-    const rateLimit = checkRateLimit(rateLimitKey)
-    
-    if (!rateLimit.allowed) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: { 
-            message: 'Rate limit exceeded', 
-            code: 'RATE_LIMIT_EXCEEDED',
-            resetTime: rateLimit.resetTime
-          } 
-        },
-        { 
-          status: 429,
-          headers: {
-            'X-RateLimit-Limit': RATE_LIMIT_MAX_REQUESTS.toString(),
-            'X-RateLimit-Remaining': '0',
-            'X-RateLimit-Reset': rateLimit.resetTime.toString()
-          }
-        }
-      )
-    }
+    body = await request.json()
+  } catch {
+    return errorResponse('Request body must be valid JSON', 'INVALID_JSON', 400)
+  }
 
-    // Parse and validate request
-    const body: TranslationRequest = await request.json()
-    
-    // Input validation
-    if (!body.text || !body.from || !body.to) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: { 
-            message: 'Missing required fields: text, from, to', 
-            code: 'INVALID_REQUEST' 
-          } 
-        },
-        { status: 400 }
-      )
-    }
+  if (!body?.text?.trim() || !body.from || !body.to) {
+    return errorResponse(
+      'Missing required fields: text, from, to',
+      'INVALID_REQUEST',
+      400
+    )
+  }
 
-    if (body.text.length > 5000) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: { 
-            message: 'Text too long. Maximum 5000 characters.', 
-            code: 'TEXT_TOO_LONG' 
-          } 
-        },
-        { status: 400 }
-      )
-    }
+  if (body.text.length > MAX_TEXT_LENGTH) {
+    return errorResponse(
+      `Text too long. Maximum ${MAX_TEXT_LENGTH} characters.`,
+      'TEXT_TOO_LONG',
+      400
+    )
+  }
 
-    // Check if translation is needed
-    if (body.from === body.to) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          translatedText: body.text,
-          confidence: 1.0,
-          detectedLanguage: body.from,
-          alternatives: []
-        }
-      })
-    }
-
-    // Perform translation with professional service
-    const startTime = Date.now()
-    const result = await translationService.translateText(body)
-    const processingTime = Date.now() - startTime
-
-    // Log for analytics (in production, use proper logging service)
-    console.log(`Translation completed: ${body.from} → ${body.to} (${processingTime}ms)`)
-
+  // Same language in and out — nothing to do.
+  if (body.from.split('-')[0] === body.to.split('-')[0]) {
     return NextResponse.json({
       success: true,
       data: {
-        ...result,
-        processingTime
-      }
-    })
-
-  } catch (error) {
-    console.error('Translation API error:', error)
-    
-    // Don't expose internal errors to client
-    const errorMessage = error instanceof Error ? error.message : 'Translation failed'
-    const isServiceUnavailable = errorMessage.includes('unavailable')
-    
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: { 
-          message: isServiceUnavailable ? errorMessage : 'Internal translation error',
-          code: isServiceUnavailable ? 'SERVICE_UNAVAILABLE' : 'INTERNAL_ERROR'
-        } 
+        translatedText: body.text,
+        confidence: 1,
+        provider: 'none',
+        quality: 'good',
+        detectedLanguage: body.from,
+        processingTime: 0,
       },
-      { status: isServiceUnavailable ? 503 : 500 }
+    })
+  }
+
+  const startTime = Date.now()
+
+  try {
+    const result = await translationService.translate(body)
+    return NextResponse.json({
+      success: true,
+      data: { ...result, processingTime: Date.now() - startTime },
+    })
+  } catch (error) {
+    if (error instanceof TranslationUnavailableError) {
+      // 503: the request was valid, we just couldn't service it right now.
+      return errorResponse(
+        'Translation is temporarily unavailable for this language pair.',
+        'TRANSLATION_UNAVAILABLE',
+        503,
+        { attempted: error.attempted }
+      )
+    }
+
+    console.error('Unexpected translation error:', error)
+    return errorResponse(
+      'Something went wrong while translating.',
+      'INTERNAL_ERROR',
+      500
     )
   }
 }
 
 export async function GET() {
-  // Health check endpoint
   return NextResponse.json({
     success: true,
     data: {
       service: 'LingoConnect Translation API',
-      version: '1.0.0',
       status: 'operational',
-      supportedLanguages: [
-        'en', 'es', 'fr', 'de', 'it', 'pt', 
-        'ja', 'ko', 'zh', 'ar', 'hi', 'ru'
-      ],
-      features: [
-        'Real-time translation',
-        'Context-aware translation',
-        'Multiple AI providers',
-        'Rate limiting',
-        'Error handling'
-      ]
-    }
+      providers: ['MyMemory', 'Apertium'],
+      note: 'Free, key-less providers. Fails explicitly rather than returning mock text.',
+    },
   })
 }

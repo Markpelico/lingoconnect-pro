@@ -1,16 +1,14 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  eslint: {
-    // Warning: This allows production builds to successfully complete even if
-    // your project has ESLint errors.
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    // Warning: This allows production builds to successfully complete even if
-    // your project has TypeScript errors.
-    ignoreBuildErrors: true,
+  // Type and lint errors fail the build. The previous config suppressed both,
+  // which hid 30+ real type errors from the deployed app.
+
+  // A stray package-lock.json in the home directory makes Next infer the wrong
+  // workspace root, which changes how build traces are collected.
+  turbopack: {
+    root: path.join(__dirname),
   },
 };
 

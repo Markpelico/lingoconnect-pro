@@ -1,734 +1,263 @@
 'use client'
 
-import React from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  Mic, 
-  MicOff, 
-  Volume2, 
-  VolumeX, 
-  ArrowLeftRight, 
-  Settings,
-  Users,
-  MessageCircle,
-  Globe,
-  Zap,
-  Shield,
-  Sparkles,
-  Loader2,
-  AlertCircle,
-  CheckCircle,
-  Trash2
-} from 'lucide-react'
+import { motion, useReducedMotion } from 'motion/react'
+import { Github, Languages } from 'lucide-react'
+import { ConversationPanel } from '@/components/conversation-panel'
+import { PhrasebookPanel } from '@/components/phrasebook-panel'
+import { ThemeToggle } from '@/components/theme'
 import { Button } from '@/components/ui/button'
-import { useConversationStore } from '@/store/conversation'
-import { useEnhancedSpeech } from '@/hooks/useEnhancedSpeech'
-import { useAutoTextToSpeech } from '@/hooks/useTextToSpeech'
-import { cn } from '@/lib/utils'
 
-// Hero Section Component
-const HeroSection = () => {
-  return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-purple-600 to-blue-800 text-white">
-      <div className="absolute inset-0 bg-black/20" />
-      <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
-      
-      <div className="relative mx-auto max-w-7xl px-6 py-24 sm:py-32 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="mx-auto max-w-3xl text-center"
-        >
-          <motion.div
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.2, duration: 0.6 }}
-            className="mb-8 inline-flex items-center gap-3 rounded-full bg-white/10 px-6 py-3 backdrop-blur-lg"
-          >
-            <Sparkles className="h-5 w-5 text-yellow-300" />
-            <span className="text-sm font-medium">Powered by Enterprise AI</span>
-          </motion.div>
-          
-          <h1 className="mb-6 text-5xl font-bold tracking-tight sm:text-7xl">
-            LingoConnect
-            <span className="bg-gradient-to-r from-yellow-300 to-orange-300 bg-clip-text text-transparent">
-              {" "}Pro
-            </span>
-          </h1>
-          
-          <p className="mb-10 text-xl leading-8 text-blue-100 sm:text-2xl">
-            Break language barriers with AI-powered real-time translation. 
-            Connect, communicate, and collaborate across cultures seamlessly.
-          </p>
-          
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6, duration: 0.6 }}
-            className="flex flex-col gap-4 sm:flex-row sm:justify-center"
-          >
-            <Button 
-              size="xl" 
-              variant="gradient"
-              className="text-lg shadow-2xl shadow-blue-500/25"
-              onClick={() => {
-                // Scroll to conversation interface
-                const conversationElement = document.querySelector('.conversation-interface')
-                if (conversationElement) {
-                  conversationElement.scrollIntoView({ behavior: 'smooth' })
-                }
-              }}
-            >
-              Start Conversation
-              <MessageCircle className="ml-2 h-5 w-5" />
-            </Button>
-            <Button 
-              size="xl" 
-              variant="outline"
-              className="border-white/20 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20"
-              onClick={() => {
-                // Scroll to the conversation interface for demo
-                const conversationElement = document.querySelector('.conversation-interface')
-                if (conversationElement) {
-                  conversationElement.scrollIntoView({ behavior: 'smooth' })
-                  // Show a helpful demo message
-                  setTimeout(() => {
-                    alert('🎬 Demo Instructions:\n\n1. Click the green microphone button\n2. Say "Hello" or "Thank you"\n3. Watch it translate to Spanish automatically\n4. Hear the translation spoken aloud!\n\nTry it now! 🎤')
-                  }, 1000)
-                } else {
-                  // Fallback: scroll to main content
-                  window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })
-                }
-              }}
-            >
-              Watch Demo
-              <Volume2 className="ml-2 h-5 w-5" />
-            </Button>
-          </motion.div>
-        </motion.div>
-        
-        {/* Floating Elements */}
-        <div className="absolute left-10 top-20 hidden lg:block">
-          <motion.div
-            animate={{ y: [-10, 10, -10] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            className="rounded-full bg-white/10 p-4 backdrop-blur-lg"
-          >
-            <Globe className="h-8 w-8 text-blue-200" />
-          </motion.div>
-        </div>
-        
-        <div className="absolute right-10 top-32 hidden lg:block">
-          <motion.div
-            animate={{ y: [10, -10, 10] }}
-            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-            className="rounded-full bg-white/10 p-4 backdrop-blur-lg"
-          >
-            <Zap className="h-8 w-8 text-yellow-200" />
-          </motion.div>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-// Language Selector Component
-const LanguageSelector = () => {
-  const { 
-    sourceLanguage, 
-    targetLanguage, 
-    supportedLanguages,
-    setSourceLanguage,
-    setTargetLanguage,
-    swapLanguages 
-  } = useConversationStore()
-
+function Reveal({
+  children,
+  delay = 0,
+}: {
+  children: React.ReactNode
+  delay?: number
+}) {
+  const reduce = useReducedMotion()
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.2 }}
-      className="mx-auto max-w-4xl rounded-2xl bg-white p-8 shadow-xl dark:bg-gray-900"
+      initial={reduce ? false : { opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.25 }}
+      transition={{ duration: 0.5, delay, ease: [0.16, 1, 0.3, 1] }}
     >
-      <h2 className="mb-6 text-center text-2xl font-bold text-gray-900 dark:text-white">
-        Choose Your Languages
-      </h2>
-      
-      <div className="flex flex-col items-center gap-6 lg:flex-row">
-        {/* Source Language */}
-        <div className="flex-1">
-          <label className="mb-3 block text-sm font-medium text-gray-700 dark:text-gray-300">
-            I speak:
-          </label>
-          <select
-            value={sourceLanguage.code}
-            onChange={(e) => {
-              const language = supportedLanguages.find(l => l.code === e.target.value)
-              if (language) setSourceLanguage(language)
-            }}
-            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-          >
-            {supportedLanguages.map((lang) => (
-              <option key={lang.code} value={lang.code}>
-                {lang.flag} {lang.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        
-        {/* Swap Button */}
-        <div className="flex items-end pb-3">
-          <Button
-            onClick={swapLanguages}
-            variant="outline"
-            size="icon"
-            className="h-12 w-12 rounded-full transition-transform hover:scale-110"
-          >
-            <ArrowLeftRight className="h-5 w-5" />
-          </Button>
-        </div>
-        
-        {/* Target Language */}
-        <div className="flex-1">
-          <label className="mb-3 block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Translate to:
-          </label>
-          <select
-            value={targetLanguage.code.split('-')[0]} // Convert speech code to translation code
-            onChange={(e) => {
-              const language = supportedLanguages.find(l => l.code.startsWith(e.target.value))
-              if (language) setTargetLanguage(language)
-            }}
-            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-          >
-            {supportedLanguages.map((lang) => (
-              <option key={lang.code} value={lang.code.split('-')[0]}>
-                {lang.flag} {lang.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      {children}
     </motion.div>
   )
 }
 
-// Conversation Interface Component
-const ConversationInterface = () => {
-  const { 
-    messages,
-    autoSpeak,
-    updateSettings 
-  } = useConversationStore()
-  
-  // Enhanced speech recognition with improved accuracy and controls
-  const {
-    isListening,
-    isSupported: speechSupported,
-    status,
-    transcript,
-    interimTranscript,
-    confidence,
-    alternatives,
-    isVoiceActive,
-    silenceDuration,
-    toggleListening,
-    resetTranscript,
-    error: speechError,
-    clearError,
-    isTranslating,
-    translationError
-  } = useEnhancedSpeech()
-  
-  // Text-to-speech for auto-speaking translations
-  const {
-    isSpeaking,
-    isSupported: ttsSupported,
-    error: ttsError
-  } = useAutoTextToSpeech()
+function Header() {
+  return (
+    <header className="sticky top-0 z-40 border-b border-line bg-bg/85 backdrop-blur-md">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
+        <div className="flex items-center gap-2">
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent">
+            <Languages
+              className="h-4 w-4 text-accent-ink"
+              strokeWidth={2.2}
+              aria-hidden
+            />
+          </span>
+          <span className="text-[15px] font-semibold tracking-tight text-ink">
+            LingoConnect
+          </span>
+        </div>
 
-  const handleMicToggle = () => {
-    // Clear any errors first
-    clearError()
-    
-    // Simple toggle - much more intuitive
-    toggleListening()
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
+          <a
+            href="https://github.com/Markpelico/lingoconnect-pro"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="View source on GitHub"
+            className="rounded-full p-1.5 text-ink-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong"
+          >
+            <Github className="h-4 w-4" strokeWidth={2} aria-hidden />
+          </a>
+        </div>
+      </div>
+    </header>
+  )
+}
+
+/** Layout family A: asymmetric split, pitch beside the working tool. */
+function Hero() {
+  const reduce = useReducedMotion()
+
+  const scrollToApp = () => {
+    const el = document.getElementById('talk')
+    el?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' })
+    el?.querySelector<HTMLButtonElement>('button[aria-label="Start listening"]')?.focus()
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.4 }}
-      className="conversation-interface mx-auto max-w-4xl rounded-2xl bg-white shadow-xl dark:bg-gray-900"
-    >
-      {/* Chat Messages Area */}
-      <div className="h-96 overflow-y-auto border-b border-gray-200 p-6 dark:border-gray-700">
-        <AnimatePresence>
-          {messages.length > 0 ? (
-            <div className="space-y-4">
-              {messages.map((message) => (
-                <motion.div
-                  key={message.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className={cn(
-                    "rounded-lg p-4 max-w-[80%]",
-                    message.userId === 'user' 
-                      ? "ml-auto bg-blue-500 text-white" 
-                      : "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white"
-                  )}
-                >
-                  <div className="mb-2 text-sm opacity-75">
-                    {message.userId === 'user' ? 'You' : 'Assistant'} • {message.language}
-                  </div>
-                  
-                  {/* Original text */}
-                  <div className="mb-2 font-medium">
-                    {message.content}
-                  </div>
-                  
-                  {/* Translation */}
-                  {message.translatedContent && (
-                    <div className="border-t border-white/20 pt-2 text-sm opacity-90">
-                      <div className="mb-1 text-xs uppercase tracking-wide">
-                        Translation ({message.targetLanguage}):
-                      </div>
-                      <div>{message.translatedContent}</div>
-                    </div>
-                  )}
-                  
-                  {/* Confidence score */}
-                  {message.confidence && (
-                    <div className="mt-2 flex items-center gap-2 text-xs opacity-75">
-                      <CheckCircle className="h-3 w-3" />
-                      {Math.round(message.confidence * 100)}% confidence
-                    </div>
-                  )}
-                </motion.div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex h-full items-center justify-center text-gray-500 dark:text-gray-400">
-              <div className="text-center">
-                <Mic className="mx-auto mb-4 h-12 w-12 opacity-50" />
-                <p className="text-lg mb-2">Start speaking to see real-time translation</p>
-                <p className="text-sm">
-                  {speechSupported ? "Click the microphone and speak" : "Speech recognition not supported"}
-                </p>
-              </div>
-            </div>
-          )}
-          
-              {/* Enhanced Current Speech Input */}
-              {(transcript || interimTranscript) && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="rounded-lg border-2 border-dashed border-blue-300 bg-blue-50 p-4 dark:border-blue-600 dark:bg-blue-900/20"
-                >
-                  <div className="mb-2 flex items-center justify-between text-sm font-medium text-blue-800 dark:text-blue-200">
-                    <div className="flex items-center gap-2">
-                      <Mic className={cn("h-4 w-4", isVoiceActive && "animate-pulse text-green-600")} />
-                      <span>
-                        {status === 'listening' && isVoiceActive && 'Recording...'}
-                        {status === 'listening' && !isVoiceActive && 'Listening...'}
-                        {status === 'processing' && 'Processing...'}
-                      </span>
-                      {isTranslating && <Loader2 className="h-4 w-4 animate-spin" />}
-                    </div>
-                    
-                    {/* Real-time Confidence */}
-                    {confidence > 0 && (
-                      <div className="flex items-center gap-1">
-                        <div className={cn(
-                          "h-2 w-2 rounded-full",
-                          confidence > 0.8 ? "bg-green-500" : confidence > 0.6 ? "bg-yellow-500" : "bg-red-500"
-                        )} />
-                        <span className="text-xs">{Math.round(confidence * 100)}%</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="text-gray-900 dark:text-white">
-                    <span className="font-medium">{transcript}</span>
-                    <span className="opacity-60 italic">{interimTranscript}</span>
-                  </div>
-                  
-                  {/* Enhanced Status Info */}
-                  <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-                    <div className="flex items-center gap-2">
-                      {isVoiceActive ? (
-                        <span className="text-green-600">🎤 Voice detected</span>
-                      ) : silenceDuration > 0 ? (
-                        <span>🤫 Silence: {Math.round(silenceDuration / 1000)}s</span>
-                      ) : (
-                        <span>👂 Waiting for speech</span>
-                      )}
-                    </div>
-                    
-                    {alternatives.length > 1 && (
-                      <span>{alternatives.length} alternatives</span>
-                    )}
-                  </div>
-                  
-                  {/* Show top alternatives for very low confidence */}
-                  {confidence < 0.6 && alternatives.length > 1 && (
-                    <div className="mt-2 pt-2 border-t border-blue-200 dark:border-blue-700">
-                      <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Did you mean:</div>
-                      {alternatives.slice(0, 2).map((alt, index) => (
-                        <div key={index} className="text-xs text-gray-700 dark:text-gray-300">
-                          • {alt.transcript} ({Math.round(alt.confidence * 100)}%)
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </motion.div>
-              )}
-        </AnimatePresence>
-        
-        {/* Error States */}
-        {(speechError || translationError || ttsError) && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="mt-4 rounded-lg bg-red-50 p-4 text-red-800 dark:bg-red-900/20 dark:text-red-200"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <AlertCircle className="h-4 w-4" />
-              <span className="font-medium">Error</span>
-            </div>
-            {speechError && <div>Speech: {speechError}</div>}
-            {translationError && <div>Translation: {translationError}</div>}
-            {ttsError && <div>Text-to-Speech: {ttsError}</div>}
-          </motion.div>
-        )}
+    <section className="mx-auto max-w-6xl px-5 pt-12 pb-16 lg:pt-20">
+      <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)] lg:gap-14">
+        <motion.div
+          initial={reduce ? false : { opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <h1 className="text-4xl font-semibold leading-[1.08] tracking-tight text-ink md:text-5xl">
+            Learn the words you
+            <br />
+            actually needed.
+          </h1>
+
+          <p className="mt-5 max-w-md text-lg leading-relaxed text-ink-soft">
+            Speak, hear the translation out loud, and keep every phrase you
+            reached for.
+          </p>
+
+          <Button size="lg" onClick={scrollToApp} className="mt-7">
+            Start talking
+          </Button>
+        </motion.div>
+
+        <motion.div
+          id="talk"
+          initial={reduce ? false : { opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
+          className="scroll-mt-24"
+        >
+          <ConversationPanel />
+        </motion.div>
       </div>
-      
-      {/* Controls */}
-      <div className="p-6">
-        <div className="flex flex-wrap items-center justify-center gap-4">
-              {/* Enhanced Microphone Button with Status */}
-              <div className="relative">
-                <Button
-                  onClick={handleMicToggle}
-                  disabled={!speechSupported}
-                  variant={isListening ? "danger" : "success"}
-                  size="xl"
-                  className={cn(
-                    "h-20 w-20 rounded-full transition-all duration-300 relative",
-                    isListening && "animate-pulse shadow-2xl shadow-red-500/50",
-                    isVoiceActive && "ring-4 ring-green-400/50 ring-offset-2",
-                    status === 'processing' && "bg-yellow-500 hover:bg-yellow-600",
-                    !speechSupported && "opacity-50 cursor-not-allowed"
-                  )}
-                >
-                  {status === 'processing' ? (
-                    <Loader2 className="h-8 w-8 animate-spin" />
-                  ) : isListening ? (
-                    <MicOff className="h-8 w-8" />
-                  ) : (
-                    <Mic className="h-8 w-8" />
-                  )}
-                </Button>
-                
-                {/* Voice Activity Indicator */}
-                {isListening && (
-                  <div className="absolute -top-2 -right-2">
-                    <div className={cn(
-                      "h-6 w-6 rounded-full border-2 border-white transition-all duration-200",
-                      isVoiceActive ? "bg-green-500" : "bg-gray-400"
-                    )}>
-                      <div className={cn(
-                        "h-full w-full rounded-full transition-all duration-200",
-                        isVoiceActive && "animate-ping bg-green-500/50"
-                      )} />
-                    </div>
-                  </div>
-                )}
-                
-                {/* Status Text */}
-                <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs font-medium">
-                  {status === 'listening' && !isVoiceActive && 'Listening...'}
-                  {status === 'listening' && isVoiceActive && 'Speaking'}
-                  {status === 'processing' && 'Processing...'}
-                  {status === 'idle' && 'Click to start'}
-                  {status === 'error' && 'Error'}
-                </div>
-              </div>
-          
-          {/* Auto-speak Toggle */}
-          <Button
-            onClick={() => updateSettings({ autoSpeak: !autoSpeak })}
-            disabled={!ttsSupported}
-            variant={autoSpeak ? "default" : "outline"}
-            size="lg"
-          >
-            {isSpeaking ? (
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            ) : autoSpeak ? (
-              <Volume2 className="mr-2 h-5 w-5" />
-            ) : (
-              <VolumeX className="mr-2 h-5 w-5" />
-            )}
-            Auto-speak {autoSpeak ? "ON" : "OFF"}
-          </Button>
-          
-          {/* Clear Chat */}
-          <Button 
-            onClick={() => {
-              console.log('🗑️ Clear button clicked')
-              const store = useConversationStore.getState()
-              store.clearMessages()
-              resetTranscript()
-            }}
-            variant="outline" 
-            size="lg"
-            disabled={messages.length === 0}
-          >
-            <Trash2 className="mr-2 h-5 w-5" />
-            Clear ({messages.length})
-          </Button>
-          
-          {/* Settings */}
-          <Button variant="outline" size="lg">
-            <Settings className="mr-2 h-5 w-5" />
-            Settings
-          </Button>
-        </div>
-        
-            {/* Enhanced Status Display */}
-            <div className="mt-6 text-center">
-              <div className="mb-2 flex items-center justify-center gap-4 text-sm">
-                {isListening && (
-                  <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                    <div className={cn(
-                      "h-2 w-2 rounded-full transition-all duration-200",
-                      isVoiceActive ? "bg-green-500 animate-pulse" : "bg-yellow-500"
-                    )} />
-                    <span>
-                      {isVoiceActive ? "Recording" : "Listening"}
-                      {silenceDuration > 3000 && ` (${Math.round(silenceDuration / 1000)}s silence)`}
-                    </span>
-                  </div>
-                )}
-                {isTranslating && (
-                  <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Translating</span>
-                  </div>
-                )}
-                {isSpeaking && (
-                  <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
-                    <Volume2 className="h-4 w-4" />
-                    <span>Speaking</span>
-                  </div>
-                )}
-                {status === 'idle' && !isTranslating && !isSpeaking && (
-                  <div className="text-gray-500 dark:text-gray-400">
-                    {speechSupported ? (
-                      <div className="flex items-center gap-2">
-                        <span>🎯 Click microphone to start</span>
-                        <span className="text-xs opacity-75">(Auto-stops when you're done)</span>
-                      </div>
-                    ) : (
-                      "Speech recognition not supported"
-                    )}
-                  </div>
-                )}
-                {status === 'error' && (
-                  <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                    <AlertCircle className="h-4 w-4" />
-                    <span>Click microphone to retry</span>
-                  </div>
-                )}
-              </div>
-          
-          {/* Feature Support Indicators */}
-          <div className="flex items-center justify-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-            <div className="flex items-center gap-1">
-              <div className={cn(
-                "h-2 w-2 rounded-full",
-                speechSupported ? "bg-green-500" : "bg-red-500"
-              )} />
-              Speech Recognition
-            </div>
-            <div className="flex items-center gap-1">
-              <div className={cn(
-                "h-2 w-2 rounded-full",
-                ttsSupported ? "bg-green-500" : "bg-red-500"
-              )} />
-              Text-to-Speech
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="h-2 w-2 rounded-full bg-green-500" />
-              AI Translation
-            </div>
-          </div>
-        </div>
-      </div>
-    </motion.div>
+    </section>
   )
 }
 
-// Features Section Component
-const FeaturesSection = () => {
-  const features = [
-    {
-      icon: Zap,
-      title: "Real-time Translation",
-      description: "Instant AI-powered translation with sub-second latency"
-    },
-    {
-      icon: Shield,
-      title: "Enterprise Security",
-      description: "End-to-end encryption and enterprise-grade privacy"
-    },
-    {
-      icon: Users,
-      title: "Multi-user Support",
-      description: "Group conversations with real-time translation for all"
-    },
-    {
-      icon: Globe,
-      title: "12+ Languages",
-      description: "Support for major world languages with more coming"
-    }
-  ]
-
+/** Layout family A again, mirrored. Two splits maximum before breaking. */
+function PhrasebookSection() {
   return (
-    <section className="bg-gray-50 py-24 dark:bg-gray-900">
-      <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: true }}
-          className="mx-auto max-w-2xl text-center"
-        >
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">
-            Enterprise-Grade Features
-          </h2>
-          <p className="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-300">
-            Built with modern technologies for scalable, secure, and efficient communication
-          </p>
-        </motion.div>
-        
-        <div className="mx-auto mt-16 max-w-5xl">
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
-            {features.map((feature, index) => (
-              <motion.div
-                key={feature.title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                viewport={{ once: true }}
-                className="rounded-lg bg-white p-6 shadow-lg dark:bg-gray-800"
-              >
-                <div className="mb-4 inline-flex rounded-lg bg-blue-100 p-3 dark:bg-blue-900">
-                  <feature.icon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                </div>
-                <h3 className="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-                  {feature.title}
-                </h3>
-                <p className="text-gray-600 dark:text-gray-300">
-                  {feature.description}
-                </p>
-              </motion.div>
-            ))}
-          </div>
+    <section className="border-t border-line bg-surface">
+      <div className="mx-auto max-w-6xl px-5 py-16 lg:py-20">
+        <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] lg:gap-14">
+          <Reveal>
+            <PhrasebookPanel />
+          </Reveal>
+
+          <Reveal delay={0.1}>
+            <h2 className="text-3xl font-semibold leading-tight tracking-tight text-ink">
+              A phrasebook you didn&apos;t have to write
+            </h2>
+            <p className="mt-4 max-w-md text-[15px] leading-relaxed text-ink-soft">
+              Every translation is saved automatically. You already proved you
+              needed it, in a real conversation, with a real person. That makes
+              it worth more than the next word on a list.
+            </p>
+            <p className="mt-4 max-w-md text-[15px] leading-relaxed text-ink-soft">
+              Phrases come back on a spaced schedule, moving further apart each
+              time you get one right.
+            </p>
+          </Reveal>
         </div>
       </div>
     </section>
   )
 }
 
-// Main Page Component
+/** Layout family B: horizontal stepped flow, no cards. */
+function HowItWorks() {
+  const steps = [
+    {
+      title: 'You get stuck',
+      body: 'Mid-conversation, you reach for a phrase you do not have yet.',
+    },
+    {
+      title: 'It speaks for you',
+      body: 'The translation plays out loud so the conversation keeps moving.',
+    },
+    {
+      title: 'You learn it',
+      body: 'The phrase is saved and comes back until you know it cold.',
+    },
+  ]
+
+  return (
+    <section className="border-t border-line">
+      <div className="mx-auto max-w-6xl px-5 py-16 lg:py-20">
+        <Reveal>
+          <h2 className="max-w-lg text-3xl font-semibold leading-tight tracking-tight text-ink">
+            Most apps teach you a language. This one follows you into it.
+          </h2>
+        </Reveal>
+
+        <div className="mt-10 grid gap-8 md:grid-cols-3 md:gap-6">
+          {steps.map((step, i) => (
+            <Reveal key={step.title} delay={i * 0.08}>
+              <div className="relative md:pr-6">
+                <div className="mb-3 flex items-center gap-3">
+                  <span className="font-mono text-sm tabular-nums text-accent-strong">
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  {/* Connector, drawn between steps rather than around them. */}
+                  <span
+                    className="hidden h-px flex-1 bg-line md:block"
+                    aria-hidden
+                  />
+                </div>
+                <h3 className="text-lg font-medium text-ink">{step.title}</h3>
+                <p className="mt-1.5 text-[15px] leading-relaxed text-ink-soft">
+                  {step.body}
+                </p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/** Layout family C: narrow editorial column. */
+function BuildNotes() {
+  return (
+    <section className="border-t border-line bg-surface">
+      <div className="mx-auto max-w-2xl px-5 py-16 lg:py-20">
+        <Reveal>
+          <h2 className="text-2xl font-semibold tracking-tight text-ink">
+            How the translation actually works
+          </h2>
+          <div className="mt-4 space-y-4 text-[15px] leading-relaxed text-ink-soft">
+            <p>
+              Translation runs through free, key-less providers: MyMemory first,
+              then Apertium for the pairs it covers. No API keys, no accounts,
+              no cost.
+            </p>
+            <p>
+              When both fail, the app says so. It never invents a translation to
+              fill the gap, which matters when you are about to say the result
+              out loud to another person.
+            </p>
+            <p>
+              Saved phrases stay in your browser. There is no server, no
+              database, and no account, so nothing you say leaves the device
+              except the text being translated.
+            </p>
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  )
+}
+
+function Footer() {
+  return (
+    <footer className="border-t border-line">
+      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-5 py-8 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-ink-muted">
+          Built by{' '}
+          <a
+            href="https://github.com/Markpelico"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-ink underline underline-offset-4 hover:text-accent-strong"
+          >
+            Mark Pelico
+          </a>
+        </p>
+        <p className="text-sm text-ink-muted">
+          Next.js, TypeScript, Web Speech API
+        </p>
+      </div>
+    </footer>
+  )
+}
+
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950">
-      {/* Professional Header */}
-      <header className="absolute top-0 left-0 right-0 z-50 bg-black/20 backdrop-blur-sm">
-        <div className="mx-auto max-w-7xl px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <MessageCircle className="h-8 w-8 text-white" />
-              <div>
-                <h1 className="text-white font-bold text-lg">LingoConnect Pro</h1>
-                <p className="text-white/70 text-xs">AI Language Exchange Platform</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-white font-medium text-sm">Created by Mark Pelico</p>
-              <p className="text-white/70 text-xs">Full-Stack Developer</p>
-            </div>
-          </div>
-        </div>
-      </header>
-      
-      <HeroSection />
-      
-      <main className="py-24">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="space-y-24">
-            <LanguageSelector />
-            <ConversationInterface />
-          </div>
-        </div>
+    <div className="min-h-[100dvh] bg-bg">
+      <Header />
+      <main>
+        <Hero />
+        <PhrasebookSection />
+        <HowItWorks />
+        <BuildNotes />
       </main>
-      
-      <FeaturesSection />
-      
-      {/* Professional Footer with Attribution */}
-      <footer className="bg-gray-900 py-12">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="text-center space-y-4">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <MessageCircle className="h-6 w-6 text-blue-400" />
-              <span className="text-xl font-bold text-white">LingoConnect Pro</span>
-            </div>
-            
-            <p className="text-gray-300">
-              Enterprise AI Language Exchange Platform
-            </p>
-            
-            <div className="border-t border-gray-700 pt-6 mt-6">
-              <p className="text-gray-400 text-sm">
-                &copy; 2025 LingoConnect Pro. Built with passion for connecting cultures.
-              </p>
-              <p className="text-gray-300 font-medium mt-2">
-                Created by <span className="text-blue-400 font-semibold">Mark Pelico</span>
-              </p>
-              <div className="flex items-center justify-center gap-6 mt-4 text-sm">
-                <a 
-                  href="https://github.com/Markpelico/lingoconnect-pro" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="text-gray-400 hover:text-blue-400 transition-colors flex items-center gap-2"
-                >
-                  <Globe className="h-4 w-4" />
-                  Source Code
-                </a>
-                <span className="text-gray-600">•</span>
-                <span className="text-gray-400">
-                  Full-Stack Developer Portfolio
-                </span>
-                <span className="text-gray-600">•</span>
-                <span className="text-gray-400">
-                  Next.js • TypeScript • AI Integration
-                </span>
-              </div>
-            </div>
-            
-            <div className="text-xs text-gray-500 mt-4 pt-4 border-t border-gray-800">
-              <p>This application demonstrates enterprise-level full-stack development skills</p>
-              <p>featuring real-time AI translation, speech recognition, and modern web technologies.</p>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }
