@@ -20,9 +20,11 @@ import { cn } from '@/lib/utils'
 function TurnCard({
   turn,
   onReplay,
+  onSaveAnyway,
 }: {
   turn: Turn
   onReplay: (text: string) => void
+  onSaveAnyway: () => void
 }) {
   const reduce = useReducedMotion()
   const sourceLanguage = useSession((s) => s.sourceLanguage)
@@ -107,6 +109,22 @@ function TurnCard({
                 </span>
               )}
 
+              {/*
+                Shown rather than swallowed. The recogniser being unsure is
+                not a reason to pretend you said nothing.
+              */}
+              {turn.uncertain && (
+                <span className="inline-flex items-center gap-2 text-xs text-ink-muted">
+                  Not sure I heard that right
+                  <button
+                    onClick={onSaveAnyway}
+                    className="rounded-full px-2 py-0.5 font-medium text-ink underline underline-offset-2 transition-colors hover:text-accent-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong"
+                  >
+                    Save anyway
+                  </button>
+                </span>
+              )}
+
               {turn.quality === 'approximate' && (
                 <span className="text-xs text-ink-muted">
                   Rough translation from {turn.provider}
@@ -131,6 +149,7 @@ export function ConversationPanel() {
     toggleListening,
     activeSpeaker,
     submitText,
+    captureTurn,
     speak,
   } = useConversation()
 
@@ -199,6 +218,7 @@ export function ConversationPanel() {
                       : targetLanguage.code
                   )
                 }
+                onSaveAnyway={() => captureTurn(turn.id)}
               />
             ))}
 

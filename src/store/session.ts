@@ -35,6 +35,11 @@ export interface Turn {
   quality?: ProviderQuality
   /** Speech-recognition confidence for the source text. */
   confidence: number
+  /**
+   * The recogniser was not sure it heard this correctly. Shown with a caveat
+   * and kept out of the phrasebook unless you say otherwise.
+   */
+  uncertain?: boolean
   /** Set once the turn has been added to the phrasebook. */
   phraseId?: string
   /** False when this phrase was already in the phrasebook. */

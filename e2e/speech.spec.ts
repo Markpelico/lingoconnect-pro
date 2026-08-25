@@ -78,6 +78,72 @@ test.describe('speaking', () => {
   })
 })
 
+test.describe('uncertain speech', () => {
+  test.beforeEach(async ({ page }) => {
+    await gotoFresh(page)
+  })
+
+  test('a low-confidence utterance is still shown, not silently dropped', async ({
+    page,
+    speech,
+  }) => {
+    // The regression this guards: the recogniser used to discard any final
+    // result below the confidence threshold without telling anyone, so you
+    // could speak, be heard correctly, and see nothing happen at all.
+    await page.getByRole('button', { name: /Listen in English/ }).click()
+    await speech.say('I need a doctor', 0.25)
+
+    await expect(page.locator('#talk').getByText('I need a doctor')).toBeVisible()
+    await expect(page.locator('#talk').getByText('Necesito un médico')).toBeVisible()
+  })
+
+  test('an uncertain utterance is caveated rather than presented as certain', async ({
+    page,
+    speech,
+  }) => {
+    await page.getByRole('button', { name: /Listen in English/ }).click()
+    await speech.say('I need a doctor', 0.25)
+
+    await expect(page.getByText('Not sure I heard that right')).toBeVisible()
+  })
+
+  test('an uncertain utterance is kept out of the phrasebook until confirmed', async ({
+    page,
+    speech,
+  }) => {
+    await page.getByRole('button', { name: /Listen in English/ }).click()
+    await speech.say('I need a doctor', 0.25)
+    await expect(page.getByText('Not sure I heard that right')).toBeVisible()
+
+    const before = await page.evaluate(
+      () =>
+        JSON.parse(localStorage.getItem('lingoconnect-phrasebook')!).state.phrases.filter(
+          (p: { isSample?: boolean }) => !p.isSample
+        ).length
+    )
+    expect(before).toBe(0)
+
+    await page.getByRole('button', { name: 'Save anyway' }).click()
+
+    const after = await page.evaluate(
+      () =>
+        JSON.parse(localStorage.getItem('lingoconnect-phrasebook')!).state.phrases.filter(
+          (p: { isSample?: boolean }) => !p.isSample
+        )
+    )
+    expect(after).toHaveLength(1)
+    expect(after[0].sourceText).toBe('I need a doctor')
+  })
+
+  test('a confident utterance is filed without asking', async ({ page, speech }) => {
+    await page.getByRole('button', { name: /Listen in English/ }).click()
+    await speech.say('I need a doctor', 0.95)
+
+    await expect(page.getByText('Saved to phrasebook')).toBeVisible()
+    await expect(page.getByText('Not sure I heard that right')).toBeHidden()
+  })
+})
+
 test.describe('spoken recall', () => {
   test.beforeEach(async ({ page }) => {
     await gotoFresh(page)

@@ -95,7 +95,8 @@ export function useConversation() {
     async (
       text: string,
       speechConfidence: number,
-      speaker: Speaker = 'you'
+      speaker: Speaker = 'you',
+      uncertain = false
     ) => {
       const {
         sourceLanguage,
@@ -115,6 +116,7 @@ export function useConversation() {
         sourceText: text,
         status: 'translating',
         confidence: speechConfidence,
+        uncertain,
         timestamp: new Date().toISOString(),
       }
       addTurn(turn)
@@ -143,7 +145,10 @@ export function useConversation() {
         let phraseId: string | undefined
         let isNewCapture: boolean | undefined
 
-        if (shouldCapture) {
+        // A shaky transcript still gets translated and spoken, because that is
+        // the immediate need, but it is not filed away unasked: the phrasebook
+        // is worth more when it does not fill up with things you never said.
+        if (shouldCapture && !uncertain) {
           const { phrase, isNew } = capture({
             sourceText: text,
             translatedText: data.translatedText,
@@ -198,7 +203,12 @@ export function useConversation() {
       setInterimTranscript('')
       const text = result.transcript.trim()
       if (text) {
-        void processUtterance(text, result.confidence, activeSpeakerRef.current)
+        void processUtterance(
+          text,
+          result.confidence,
+          activeSpeakerRef.current,
+          result.isLowConfidence
+        )
       }
     },
     [processUtterance]
@@ -307,6 +317,39 @@ export function useConversation() {
   }, [])
 
   /**
+   * File a turn the recogniser was unsure about, once you have read it and
+   * decided it was right after all.
+   */
+  const captureTurn = useCallback(
+    (turnId: string) => {
+      const turn = useSession.getState().turns.find((t) => t.id === turnId)
+      if (!turn?.translatedText) return
+
+      const { sourceLanguage, targetLanguage } = settingsRef.current
+      const from = turn.speaker === 'you' ? sourceLanguage : targetLanguage
+      const to = turn.speaker === 'you' ? targetLanguage : sourceLanguage
+
+      const { phrase, isNew } = capture({
+        sourceText: turn.sourceText,
+        translatedText: turn.translatedText,
+        sourceLanguage: from.code,
+        targetLanguage: to.code,
+        provider: turn.provider ?? 'unknown',
+        quality: turn.quality ?? 'good',
+        confidence: turn.confidence,
+        mode: turn.speaker === 'you' ? 'production' : 'comprehension',
+      })
+
+      updateTurn(turnId, {
+        phraseId: phrase.id,
+        isNewCapture: isNew,
+        uncertain: false,
+      })
+    },
+    [capture, updateTurn]
+  )
+
+  /**
    * Translate typed text. Speech recognition doesn't exist in Firefox, and
    * some users would rather type than talk, so the whole loop stays reachable
    * without a microphone.
@@ -335,6 +378,7 @@ export function useConversation() {
     listenAs,
     stopListening,
     submitText,
+    captureTurn,
     activeSpeaker,
     speak,
     ttsSupported: textToSpeech.isSupported(),

@@ -4,6 +4,11 @@
  */
 
 import { debounce } from '@/lib/utils'
+import {
+  isLowConfidence,
+  normalizeConfidence,
+  rankAlternatives,
+} from '@/lib/speech-result'
 
 export interface EnhancedSpeechConfig {
   language: string
@@ -20,6 +25,11 @@ export interface SpeechResult {
   confidence: number
   isFinal: boolean
   alternatives: Array<{ transcript: string; confidence: number }>
+  /**
+   * The recogniser was not sure. The result is still delivered; this only
+   * tells the caller to caveat it rather than present it as certain.
+   */
+  isLowConfidence: boolean
   timestamp: Date
 }
 
@@ -116,31 +126,35 @@ export class EnhancedSpeechRecognition {
       
       if (result) {
         const transcript = result[0].transcript.trim()
-        const confidence = result[0].confidence || 0.8
+        const confidence = normalizeConfidence(result[0].confidence)
         const isFinal = result.isFinal
 
-        // Voice activity detection
-        if (transcript.length > 0) {
-          this.updateVoiceActivity(true)
-        }
+        if (transcript.length === 0) return
 
-        // Filter by confidence threshold
-        if (confidence >= this.config.confidenceThreshold || !isFinal) {
-          const alternatives = Array.from(
-            result as unknown as ArrayLike<SpeechRecognitionAlternative>
+        this.updateVoiceActivity(true)
+
+        /*
+          Every result is delivered, including uncertain ones.
+
+          This previously gated on `confidence >= threshold`, which silently
+          discarded final results the recogniser was unsure about: you spoke,
+          you were heard, and nothing appeared. Accented and non-native speech
+          score lowest, so the people this app is for were the ones it ignored.
+        */
+        {
+          const alternatives = rankAlternatives(
+            Array.from(result as unknown as ArrayLike<SpeechRecognitionAlternative>)
           )
-            .slice(0, 5)
-            .map((alt, index) => ({
-              transcript: alt.transcript.trim(),
-              confidence: alt.confidence || (0.9 - index * 0.1)
-            }))
-            .filter(alt => alt.confidence >= this.config.confidenceThreshold)
 
           this.onResult?.({
             transcript,
             confidence,
             isFinal,
             alternatives,
+            isLowConfidence: isLowConfidence(
+              confidence,
+              this.config.confidenceThreshold
+            ),
             timestamp: new Date()
           })
 

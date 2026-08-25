@@ -151,12 +151,28 @@ Scoring takes the better of Levenshtein similarity and word overlap. Character
 distance alone punishes a correct-but-reordered answer; word overlap alone
 rewards a wrong answer that shares vocabulary.
 
+## When it isn't sure it heard you
+
+Every recognition result is shown, including the ones the recogniser scored
+badly. Uncertain ones are labelled "Not sure I heard that right" and held back
+from the phrasebook until you confirm them, but they are never discarded.
+
+This replaced a real bug. The recogniser used to drop any final result below
+a confidence threshold without calling the result handler at all, so you could
+speak, be heard correctly, and see nothing happen: no transcript, no error, no
+indication anything had gone wrong. Recognition confidence is lowest for
+accented and non-native speech in noisy rooms, which is the exact audience this
+app exists for, so the people it was built for were the ones it ignored.
+
+It survived as long as it did because it lived in the one module excluded from
+coverage. The decision logic now sits in a tested module of its own.
+
 ## Tests
 
 ```bash
-npm test              # 155 unit tests
+npm test              # 173 unit tests
 npm run test:coverage # with coverage thresholds enforced
-npm run test:e2e      # 20 end-to-end tests
+npm run test:e2e      # 24 end-to-end tests
 ```
 
 Vitest, covering the domain logic and the API route:
@@ -180,7 +196,7 @@ rather than the code, so they are verified by hand in the browser instead.
 
 Playwright drives the real UI in Chromium for the flows that unit tests
 cannot reach: capture, review scheduling, spoken recall, two-way conversation,
-and the export downloads.
+uncertain-speech handling, and the export downloads.
 
 Both fakes there exist to remove non-determinism, not to make things pass.
 Speech recognition is stubbed because CI has no microphone, and it has to be

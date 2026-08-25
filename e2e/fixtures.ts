@@ -22,6 +22,7 @@ const TRANSLATIONS: Record<string, string> = {
   'Could you say that more slowly?': '¿Podrías decirlo más despacio?',
   '¿Dónde está el baño?': 'Where is the bathroom?',
   'Está a la vuelta de la esquina': "It's around the corner",
+  'I need a doctor': 'Necesito un médico',
 }
 
 export interface SpeechControls {
