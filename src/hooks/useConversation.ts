@@ -9,7 +9,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useSession, type Turn } from '@/store/session'
+import { useSession, type Speaker, type Turn } from '@/store/session'
 import { usePhrasebook } from '@/store/phrasebook'
 import {
   getEnhancedSpeechRecognition,
@@ -92,16 +92,26 @@ export function useConversation() {
 
   /** Translate one finished utterance and fold the result into a turn. */
   const processUtterance = useCallback(
-    async (text: string, speechConfidence: number) => {
+    async (
+      text: string,
+      speechConfidence: number,
+      speaker: Speaker = 'you'
+    ) => {
       const {
-        sourceLanguage: from,
-        targetLanguage: to,
+        sourceLanguage,
+        targetLanguage,
         autoSpeak: shouldSpeak,
         autoCapture: shouldCapture,
       } = settingsRef.current
 
+      // Their speech runs the pair in reverse: they speak the language you
+      // are learning, and it needs rendering back into yours.
+      const from = speaker === 'you' ? sourceLanguage : targetLanguage
+      const to = speaker === 'you' ? targetLanguage : sourceLanguage
+
       const turn: Turn = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        speaker,
         sourceText: text,
         status: 'translating',
         confidence: speechConfidence,
@@ -142,6 +152,9 @@ export function useConversation() {
             provider: data.provider,
             quality: data.quality,
             confidence: data.confidence,
+            // What you said is production practice; what they said is
+            // comprehension, which is the harder half.
+            mode: speaker === 'you' ? 'production' : 'comprehension',
           })
           phraseId = phrase.id
           isNewCapture = isNew
@@ -169,6 +182,10 @@ export function useConversation() {
     [addTurn, updateTurn, capture, speak]
   )
 
+  /** Who the current listening session is attributed to. */
+  const activeSpeakerRef = useRef<Speaker>('you')
+  const [activeSpeaker, setActiveSpeaker] = useState<Speaker>('you')
+
   const handleResult = useCallback(
     (result: SpeechResult) => {
       setConfidence(result.confidence)
@@ -181,7 +198,7 @@ export function useConversation() {
       setInterimTranscript('')
       const text = result.transcript.trim()
       if (text) {
-        void processUtterance(text, result.confidence)
+        void processUtterance(text, result.confidence, activeSpeakerRef.current)
       }
     },
     [processUtterance]
@@ -198,7 +215,8 @@ export function useConversation() {
     setIsListening(next === 'listening')
   }, [])
 
-  // Build the recogniser once per source language.
+  // Build the recogniser once. Its language is set per turn rather than here,
+  // because the two speakers use different ones.
   useEffect(() => {
     const recognition = getEnhancedSpeechRecognition({
       language: sourceLanguage.code,
@@ -211,27 +229,41 @@ export function useConversation() {
     })
     recognitionRef.current = recognition
     setIsSupported(recognition.isSpeechSupported())
-    recognition.updateLanguage(sourceLanguage.code)
   }, [sourceLanguage.code])
 
-  const startListening = useCallback(() => {
-    const recognition = recognitionRef.current
-    if (!recognition) return
+  /**
+   * Start listening on behalf of one speaker.
+   *
+   * The recogniser is told which language to expect, which matters a lot:
+   * running Spanish audio through an English model produces confident
+   * nonsense rather than an error.
+   */
+  const listenAs = useCallback(
+    (speaker: Speaker) => {
+      const recognition = recognitionRef.current
+      if (!recognition) return
 
-    if (!recognition.isSpeechSupported()) {
-      setError('Speech recognition is not supported in this browser.')
-      setStatus('error')
-      return
-    }
+      if (!recognition.isSpeechSupported()) {
+        setError('Speech recognition is not supported in this browser.')
+        setStatus('error')
+        return
+      }
 
-    setError(null)
-    recognition.startListening(
-      handleResult,
-      handleError,
-      setIsVoiceActive,
-      handleStatusChange
-    )
-  }, [handleResult, handleError, handleStatusChange])
+      const { sourceLanguage: mine, targetLanguage: theirs } = settingsRef.current
+      activeSpeakerRef.current = speaker
+      setActiveSpeaker(speaker)
+      recognition.updateLanguage(speaker === 'you' ? mine.code : theirs.code)
+
+      setError(null)
+      recognition.startListening(
+        handleResult,
+        handleError,
+        setIsVoiceActive,
+        handleStatusChange
+      )
+    },
+    [handleResult, handleError, handleStatusChange]
+  )
 
   const stopListening = useCallback(() => {
     recognitionRef.current?.stopListening()
@@ -239,10 +271,22 @@ export function useConversation() {
     setIsVoiceActive(false)
   }, [])
 
-  const toggleListening = useCallback(() => {
-    if (isListening) stopListening()
-    else startListening()
-  }, [isListening, startListening, stopListening])
+  /**
+   * Toggle listening for a speaker. Tapping the other speaker's button while
+   * one is live switches sides rather than stopping, which is how a real
+   * back-and-forth actually goes.
+   */
+  const toggleListening = useCallback(
+    (speaker: Speaker = 'you') => {
+      if (isListening && activeSpeakerRef.current === speaker) {
+        stopListening()
+        return
+      }
+      if (isListening) stopListening()
+      listenAs(speaker)
+    },
+    [isListening, listenAs, stopListening]
+  )
 
   // Stop cleanly when the tab is hidden — a hot mic in a background tab is
   // both a battery drain and a privacy surprise.
@@ -268,11 +312,11 @@ export function useConversation() {
    * without a microphone.
    */
   const submitText = useCallback(
-    (text: string) => {
+    (text: string, speaker: Speaker = 'you') => {
       const trimmed = text.trim()
       if (!trimmed) return
       // Typed input is exact, so it carries full confidence.
-      void processUtterance(trimmed, 1)
+      void processUtterance(trimmed, 1, speaker)
     },
     [processUtterance]
   )
@@ -288,9 +332,10 @@ export function useConversation() {
     error,
     clearError: useCallback(() => setError(null), []),
     toggleListening,
-    startListening,
+    listenAs,
     stopListening,
     submitText,
+    activeSpeaker,
     speak,
     ttsSupported: textToSpeech.isSupported(),
   }

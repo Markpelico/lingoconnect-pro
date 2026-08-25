@@ -36,6 +36,17 @@ export interface CapturedPhrase {
   lastReviewedAt?: string
 
   /**
+   * Which direction this card tests.
+   *
+   * `production` is something you said and needed rendered into the language
+   * you are learning. `comprehension` is something the other person said,
+   * where the skill being tested is understanding rather than producing.
+   *
+   * Optional so phrases saved before two-way capture existed still load.
+   */
+  mode?: 'production' | 'comprehension'
+
+  /**
    * Seeded demo content rather than something the user captured. Labelled as
    * such in the UI, and cleared as soon as a real phrase is saved.
    */
@@ -72,6 +83,7 @@ export function createPhrase(input: {
   provider: string
   quality: ProviderQuality
   confidence: number
+  mode?: 'production' | 'comprehension'
 }): CapturedPhrase {
   const now = new Date()
   return {

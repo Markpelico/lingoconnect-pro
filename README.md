@@ -47,6 +47,30 @@ speak  ->  Web Speech API  ->  /api/translate  ->  speech synthesis
 Everything runs in the browser or in a single serverless route. There is no
 database, no account system, and no user data on any server.
 
+## Both sides of the conversation
+
+There are two microphone buttons, one per speaker. Yours listens in the
+language you speak and translates outward; theirs listens in the language you
+are learning and translates back.
+
+That matters for more than symmetry. Their half is captured as
+**comprehension** practice rather than production, because understanding what
+was said back to you is the harder skill and the one a phrasebook normally
+ignores. A comprehension card asks what a phrase meant instead of how to say
+it, and does not offer spoken recall, since saying a meaning back in your own
+language proves nothing.
+
+Pointing the recogniser at the right language is not cosmetic: running Spanish
+audio through an English model returns confident nonsense rather than an
+error.
+
+## Getting your phrases out
+
+Export to Anki, CSV, or JSON. The phrasebook lives in localStorage, so without
+an exit route clearing your browser would lose everything, which is a poor fit
+for an app arguing against quietly hurting the user. JSON round trips review
+progress intact.
+
 ## Translation providers
 
 Free and key-less, tried in order. I benchmarked the usual suspects before
@@ -130,8 +154,9 @@ rewards a wrong answer that shares vocabulary.
 ## Tests
 
 ```bash
-npm test              # 91 tests
+npm test              # 155 unit tests
 npm run test:coverage # with coverage thresholds enforced
+npm run test:e2e      # 20 end-to-end tests
 ```
 
 Vitest, covering the domain logic and the API route:
@@ -153,15 +178,25 @@ The Web Speech API wrappers are excluded from coverage deliberately. Covering
 them would mean mocking `SpeechRecognition` wholesale, which tests the mock
 rather than the code, so they are verified by hand in the browser instead.
 
-CI runs typecheck, lint, tests with coverage thresholds, and a production
-build on every push and pull request.
+Playwright drives the real UI in Chromium for the flows that unit tests
+cannot reach: capture, review scheduling, spoken recall, two-way conversation,
+and the export downloads.
+
+Both fakes there exist to remove non-determinism, not to make things pass.
+Speech recognition is stubbed because CI has no microphone, and it has to be
+installed with `addInitScript` rather than from the page, since the app reads
+`window.SpeechRecognition` on first mount and never sees a later stub. The
+translation API is mocked so the suite fails when the app breaks rather than
+when MyMemory is rate limiting.
+
+CI runs typecheck, lint, unit tests with coverage thresholds, a production
+build, and the end-to-end suite on every push and pull request.
 
 ## What is not built
 
 Being explicit, since the previous README was not:
 
 - No accounts, no sync. Phrases live in one browser and do not follow you.
-- No end-to-end browser tests. The unit suite covers logic, not the UI.
 - No multi-user or peer-to-peer conversation. An earlier version had a
   Socket.IO scaffold that was never wired up and could not have run on
   serverless; it has been removed rather than left as decoration.
@@ -172,7 +207,6 @@ Being explicit, since the previous README was not:
 
 ## Possible next steps
 
-- Export the phrasebook (Anki, CSV) so the data is not trapped.
 - Record your attempt on review and play it back against the reference.
 - Group phrases by the conversation they came from.
 - A mobile app, which is where this concept actually belongs. The whole

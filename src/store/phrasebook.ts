@@ -44,6 +44,7 @@ interface PhrasebookActions {
     provider: string
     quality: ProviderQuality
     confidence: number
+    mode?: 'production' | 'comprehension'
   }) => { phrase: CapturedPhrase; isNew: boolean }
 
   review: (id: string, remembered: boolean) => void

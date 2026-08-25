@@ -14,9 +14,19 @@ import type { ProviderQuality } from '@/lib/translation'
 
 export type TurnStatus = 'translating' | 'done' | 'failed'
 
-/** One thing you said, and what became of it. */
+/**
+ * Who produced a turn.
+ *
+ * A conversation has two sides, and the other person's half is where the
+ * comprehension practice lives: understanding what was said back to you is a
+ * different, harder skill than producing a phrase you prepared.
+ */
+export type Speaker = 'you' | 'them'
+
+/** One thing someone said, and what became of it. */
 export interface Turn {
   id: string
+  speaker: Speaker
   sourceText: string
   translatedText?: string
   status: TurnStatus

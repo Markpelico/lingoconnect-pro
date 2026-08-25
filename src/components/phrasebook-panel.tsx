@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { BookMarked, Check, Eye, Info, Mic, Trash2, Volume2, X } from 'lucide-react'
+import { BookMarked, Check, Download, Eye, Info, Mic, Trash2, Volume2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { usePhrasebook } from '@/store/phrasebook'
-import { computeStats, selectDuePhrases, MAX_BOX } from '@/lib/phrases'
+import { computeStats, selectDuePhrases, MAX_BOX, type CapturedPhrase } from '@/lib/phrases'
+import { buildExport, downloadExport, type ExportFormat } from '@/lib/export'
 import { textToSpeech } from '@/lib/speech-synthesis'
 import { useSpokenRecall } from '@/hooks/useSpokenRecall'
 import { cn } from '@/lib/utils'
@@ -139,6 +140,72 @@ function RecallAttempt({
   )
 }
 
+/**
+ * Take your phrases elsewhere.
+ *
+ * Everything is in localStorage, so without this a cleared browser loses the
+ * lot. Anki is offered because that is where people who care about spaced
+ * repetition already are, and JSON because it round trips without losing
+ * review progress.
+ */
+function ExportMenu({ phrases }: { phrases: CapturedPhrase[] }) {
+  const [open, setOpen] = useState(false)
+
+  const formats: Array<{ value: ExportFormat; label: string; hint: string }> = [
+    { value: 'anki', label: 'Anki', hint: 'tab separated' },
+    { value: 'csv', label: 'CSV', hint: 'spreadsheets' },
+    { value: 'json', label: 'JSON', hint: 'full backup' },
+  ]
+
+  const run = (format: ExportFormat) => {
+    downloadExport(buildExport(phrases, format))
+    setOpen(false)
+  }
+
+  return (
+    <div className="relative ml-auto">
+      <Button
+        onClick={() => setOpen((v) => !v)}
+        variant="outline"
+        size="sm"
+        disabled={phrases.length === 0}
+        aria-expanded={open}
+        aria-haspopup="menu"
+      >
+        <Download className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+        Export
+      </Button>
+
+      {open && (
+        <>
+          {/* Click-away layer, so the menu closes like a menu should. */}
+          <div
+            className="fixed inset-0 z-10"
+            onClick={() => setOpen(false)}
+            aria-hidden
+          />
+          <div
+            role="menu"
+            className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-[10px] border border-line bg-surface shadow-lg"
+          >
+            {formats.map((format) => (
+              <button
+                key={format.value}
+                role="menuitem"
+                onClick={() => run(format.value)}
+                className="flex w-full items-baseline justify-between px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-surface-sunk focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent-strong"
+              >
+                {format.label}
+                <span className="text-xs text-ink-muted">{format.hint}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function Stat({ value, label }: { value: number; label: string }) {
   return (
     <div>
@@ -205,6 +272,7 @@ export function PhrasebookPanel() {
         <Stat value={stats.total} label="saved" />
         <Stat value={stats.due} label="to review" />
         <Stat value={stats.mastered} label="known" />
+        <ExportMenu phrases={phrases} />
       </div>
 
       {/*
@@ -243,10 +311,20 @@ export function PhrasebookPanel() {
               transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
               className="rounded-[16px] border border-line bg-surface p-5"
             >
+              {/*
+                A comprehension card came from something the other person
+                said, so the question is what it meant, not how to produce it.
+              */}
               <p className="mb-1 text-xs text-ink-muted">
-                How do you say this in {languageName(current.targetLanguage)}?
+                {current.mode === 'comprehension'
+                  ? 'What does this mean?'
+                  : `How do you say this in ${languageName(current.targetLanguage)}?`}
               </p>
-              <p className="text-xl font-medium leading-snug text-ink">
+              <p
+                lang={current.sourceLanguage}
+                dir={isRtl(current.sourceLanguage) ? 'rtl' : 'ltr'}
+                className="text-xl font-medium leading-snug text-ink"
+              >
                 {current.sourceText}
               </p>
 
@@ -295,16 +373,23 @@ export function PhrasebookPanel() {
                 </motion.div>
               ) : (
                 <div className="mt-4 space-y-3">
-                  <RecallAttempt
-                    expected={current.translatedText}
-                    language={current.targetLanguage}
-                    onPassed={() => handleReview(true)}
-                    onReveal={() => setRevealed(true)}
-                  />
+                  {/*
+                    Speaking the answer only tests production. For a
+                    comprehension card the answer is in your own language, so
+                    saying it back proves nothing.
+                  */}
+                  {current.mode !== 'comprehension' && (
+                    <RecallAttempt
+                      expected={current.translatedText}
+                      language={current.targetLanguage}
+                      onPassed={() => handleReview(true)}
+                      onReveal={() => setRevealed(true)}
+                    />
+                  )}
 
                   <Button
                     onClick={() => setRevealed(true)}
-                    variant="ghost"
+                    variant={current.mode === 'comprehension' ? 'accent' : 'ghost'}
                     className="w-full"
                   >
                     <Eye className="h-4 w-4" strokeWidth={2} aria-hidden />

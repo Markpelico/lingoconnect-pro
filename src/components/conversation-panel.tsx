@@ -25,16 +25,37 @@ function TurnCard({
   onReplay: (text: string) => void
 }) {
   const reduce = useReducedMotion()
+  const sourceLanguage = useSession((s) => s.sourceLanguage)
   const targetLanguage = useSession((s) => s.targetLanguage)
+
+  // Their turn runs the pair in reverse, so the translation comes back in
+  // your language rather than theirs.
+  const theirs = turn.speaker === 'them'
+  const spokenIn = theirs ? targetLanguage : sourceLanguage
+  const renderedIn = theirs ? sourceLanguage : targetLanguage
 
   return (
     <motion.li
       initial={reduce ? false : { opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-      className="rounded-[16px] border border-line bg-surface p-4"
+      className={cn(
+        'rounded-[16px] border p-4',
+        theirs
+          ? 'ml-6 border-dashed border-line bg-surface-sunk'
+          : 'mr-6 border-line bg-surface'
+      )}
     >
-      <p className="text-[15px] leading-snug text-ink-soft">{turn.sourceText}</p>
+      <p className="mb-1 text-xs font-medium text-ink-muted">
+        {theirs ? 'Them' : 'You'}
+      </p>
+      <p
+        lang={spokenIn.code}
+        dir={spokenIn.rtl ? 'rtl' : 'ltr'}
+        className="text-[15px] leading-snug text-ink-soft"
+      >
+        {turn.sourceText}
+      </p>
 
       <div className="mt-3 border-t border-line pt-3">
         {turn.status === 'translating' && (
@@ -59,8 +80,8 @@ function TurnCard({
         {turn.status === 'done' && turn.translatedText && (
           <>
             <p
-              lang={targetLanguage.code}
-              dir={targetLanguage.rtl ? 'rtl' : 'ltr'}
+              lang={renderedIn.code}
+              dir={renderedIn.rtl ? 'rtl' : 'ltr'}
               className="text-lg font-medium leading-snug text-ink"
             >
               {turn.translatedText}
@@ -108,12 +129,19 @@ export function ConversationPanel() {
     error,
     clearError,
     toggleListening,
+    activeSpeaker,
     submitText,
     speak,
   } = useConversation()
 
-  const { turns, clearTurns, targetLanguage, autoSpeak, updateSettings } =
-    useSession()
+  const {
+    turns,
+    clearTurns,
+    sourceLanguage,
+    targetLanguage,
+    autoSpeak,
+    updateSettings,
+  } = useSession()
 
   const [draft, setDraft] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -160,7 +188,18 @@ export function ConversationPanel() {
         ) : (
           <ul className="space-y-3">
             {turns.map((turn) => (
-              <TurnCard key={turn.id} turn={turn} onReplay={(t) => speak(t, targetLanguage.code)} />
+              <TurnCard
+                key={turn.id}
+                turn={turn}
+                onReplay={(text) =>
+                  speak(
+                    text,
+                    turn.speaker === 'them'
+                      ? sourceLanguage.code
+                      : targetLanguage.code
+                  )
+                }
+              />
             ))}
 
             <AnimatePresence>
@@ -200,40 +239,60 @@ export function ConversationPanel() {
 
       {/* Controls */}
       <div className="border-t border-line p-4">
-        <div className="flex items-center gap-3">
-          <div className="relative shrink-0">
-            {isListening && !reduce && (
-              <span
-                className="pulse-ring absolute inset-0 rounded-full bg-live"
-                aria-hidden
-              />
-            )}
-            <Button
-              onClick={toggleListening}
-              disabled={!isSupported}
-              variant={isListening ? 'live' : 'accent'}
-              size="icon"
-              className={cn(
-                'relative h-12 w-12',
-                isVoiceActive && 'ring-2 ring-live ring-offset-2 ring-offset-surface-sunk'
-              )}
-              aria-label={isListening ? 'Stop listening' : 'Start listening'}
-              title={
-                isSupported
-                  ? isListening
-                    ? 'Stop listening'
-                    : 'Start listening'
-                  : 'Speech input is not supported in this browser'
-              }
-            >
-              {isListening ? (
-                <Square className="h-4 w-4 fill-current" strokeWidth={2} aria-hidden />
-              ) : (
-                <Mic className="h-5 w-5" strokeWidth={2} aria-hidden />
-              )}
-            </Button>
-          </div>
+        {/*
+          One button per side. The other person's button sets the recogniser
+          to the language they speak; running their audio through your
+          language model produces confident nonsense rather than an error.
+        */}
+        <div className="mb-3 grid grid-cols-2 gap-2">
+          {(['you', 'them'] as const).map((side) => {
+            const live = isListening && activeSpeaker === side
+            return (
+              <div key={side} className="relative">
+                {live && !reduce && (
+                  <span
+                    className="pulse-ring absolute inset-0 rounded-full bg-live"
+                    aria-hidden
+                  />
+                )}
+                <Button
+                  onClick={() => toggleListening(side)}
+                  disabled={!isSupported}
+                  variant={live ? 'live' : side === 'you' ? 'accent' : 'outline'}
+                  className={cn(
+                    'relative w-full',
+                    live &&
+                      isVoiceActive &&
+                      'ring-2 ring-live ring-offset-2 ring-offset-surface-sunk'
+                  )}
+                  aria-label={
+                    live
+                      ? 'Stop listening'
+                      : side === 'you'
+                        ? `Listen in ${sourceLanguage.name}`
+                        : `Listen in ${targetLanguage.name}`
+                  }
+                  title={
+                    isSupported
+                      ? side === 'you'
+                        ? `You speak ${sourceLanguage.name}`
+                        : `They speak ${targetLanguage.name}`
+                      : 'Speech input is not supported in this browser'
+                  }
+                >
+                  {live ? (
+                    <Square className="h-4 w-4 fill-current" strokeWidth={2} aria-hidden />
+                  ) : (
+                    <Mic className="h-4 w-4" strokeWidth={2} aria-hidden />
+                  )}
+                  {live ? 'Stop' : side === 'you' ? 'You' : 'Them'}
+                </Button>
+              </div>
+            )
+          })}
+        </div>
 
+        <div className="flex items-center gap-3">
           <form onSubmit={handleSubmit} className="flex flex-1 items-center gap-2">
             <label htmlFor="phrase-input" className="sr-only">
               Type a phrase to translate
